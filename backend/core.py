@@ -1,5 +1,7 @@
 """Core backend service for ProjectUSB."""
 
+import backend.modules.testingModule as testingModule
+
 
 class BackendService:
     """Main backend service class that handles business logic."""
@@ -7,6 +9,7 @@ class BackendService:
     def __init__(self):
         """Initialize the backend service."""
         self._data = {}
+        print(testingModule.test())
 
     def get_status(self) -> str:
         """Get the current status of the backend service.
