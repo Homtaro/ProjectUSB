@@ -75,19 +75,6 @@ def get_all_devices_info_decoded():
 
     return result
 
-def is_keyboard_interface(interface):
-    return (
-        interface["class"] == "0x03" and
-        interface["subclass"] == "0x01" and
-        interface["protocol"] == "0x01"
-    )
-
-
-
-
-
-
-
 def test_check_usb():
 
     backend = load_backend()
@@ -147,13 +134,7 @@ def check_usb_all():
         print(f"Serial Number = {serial}")
 
         # Power info (from first configuration)
-        #cfg = dev[0]
-
-        try:
-            cfg = dev.get_active_configuration()
-        except usb.core.USBError:
-            cfg = dev[0]  # fallback
-
+        cfg = dev[0]
         print(f"Max Power     = {cfg.bMaxPower * 2} mA")
         print(f"Self-Powered  = {bool(cfg.bmAttributes & 0x40)}")
 
@@ -169,7 +150,7 @@ def check_usb_all():
 
     return "USB Check Complete"
 
-#DEPRECATED START
+
 def classify_device(dev):
     for cfg in dev:
         for intf in cfg:
@@ -195,7 +176,7 @@ def classify_device(dev):
                 return "Wireless Adapter / Bluetooth Radio"
 
     return "Unknown"
-#DEPRECATED END
+
 
 
 def get_device_info(dev):
@@ -219,13 +200,7 @@ def get_device_info(dev):
     except:
         pass
 
-    #cfg = dev[0]
-
-    try:
-        cfg = dev.get_active_configuration()
-    except (usb.core.USBError, NotImplementedError):
-        cfg = dev[0]  # descriptor-only fallback (no device open)
-
+    cfg = dev[0]
     info["power_mA"] = cfg.bMaxPower * 2
     info["self_powered"] = bool(cfg.bmAttributes & 0x40)
 
@@ -238,38 +213,9 @@ def get_device_info(dev):
         }
         info["interfaces"].append(intf_info)
 
-    info["type"] = decode_class(dev.bDeviceClass)
+    info["type"] = classify_device(dev)
 
     return info
-
-# def get_device_info_decoded(dev):
-#     info = {
-#         "vid": hex(dev.idVendor),
-#         "pid": hex(dev.idProduct),
-#         "vendor_name": decode_vendor(dev.idVendor),
-#         "device_name": decode_device(dev.idVendor, dev.idProduct),
-#         "class": hex(dev.bDeviceClass),
-#         "class_name": decode_class(dev.bDeviceClass),
-#         "interfaces": []
-#     }
-#
-#     cfg = dev[0]
-#     for intf in cfg:
-#         info["interfaces"].append({
-#             "number": intf.bInterfaceNumber,
-#             "class": hex(intf.bInterfaceClass),
-#             "class_name": decode_class(intf.bInterfaceClass),
-#             "subclass": hex(intf.bInterfaceSubClass),
-#             "subclass_name": decode_subclass(
-#                 intf.bInterfaceClass, intf.bInterfaceSubClass
-#             ),
-#             "protocol": hex(intf.bInterfaceProtocol),
-#             "protocol_name": decode_protocol(
-#                 intf.bInterfaceClass, intf.bInterfaceSubClass, intf.bInterfaceProtocol
-#             )
-#         })
-#
-#     return info
 
 def get_device_info_decoded(dev):
     info = {
@@ -282,26 +228,8 @@ def get_device_info_decoded(dev):
         "interfaces": []
     }
 
-    try:
-        cfg = dev.get_active_configuration()
-    except (usb.core.USBError, NotImplementedError):
-        cfg = dev[0]  # descriptor-only fallback (no device open)
-
-    seen_interfaces = set()
-
-    info["power"] = {
-        "max_power_ma": cfg.bMaxPower * 2,
-        "self_powered": bool(cfg.bmAttributes & 0x40)
-    }
-
+    cfg = dev[0]
     for intf in cfg:
-        key = (intf.bInterfaceNumber, intf.bInterfaceClass,
-               intf.bInterfaceSubClass, intf.bInterfaceProtocol)
-
-        if key in seen_interfaces:
-            continue
-        seen_interfaces.add(key)
-
         info["interfaces"].append({
             "number": intf.bInterfaceNumber,
             "class": hex(intf.bInterfaceClass),
@@ -312,15 +240,11 @@ def get_device_info_decoded(dev):
             ),
             "protocol": hex(intf.bInterfaceProtocol),
             "protocol_name": decode_protocol(
-                intf.bInterfaceClass,
-                intf.bInterfaceSubClass,
-                intf.bInterfaceProtocol
+                intf.bInterfaceClass, intf.bInterfaceSubClass, intf.bInterfaceProtocol
             )
         })
 
     return info
-
-
 
 def format_device_tree(dev):
     """Return a formatted tree-style USB information block."""
