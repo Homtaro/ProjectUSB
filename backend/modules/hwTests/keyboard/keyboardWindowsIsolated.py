@@ -18,6 +18,8 @@ WNDPROC = ctypes.WINFUNCTYPE(ctypes.c_longlong, ctypes.c_void_p, ctypes.c_uint, 
 
 pressed_keys = set()
 heatmap = defaultdict(int)
+unique_keys = set()
+total_presses = 0
 max_keys = 0
 TARGET_DEVICE_HANDLE = None  # Will store the handle of the specific keyboard
 
@@ -106,6 +108,7 @@ def get_device_handle(target_vid, target_pid):
 
 def wnd_proc(hwnd, msg, wparam, lparam):
     global max_keys
+    global unique_keys, total_presses
 
     if msg == WM_INPUT:
         size = ctypes.c_uint()
@@ -127,7 +130,8 @@ def wnd_proc(hwnd, msg, wparam, lparam):
                 # because some keyboards use multiple handles for different keys.
                 if raw.header.hDevice != TARGET_DEVICE_HANDLE:
                     # Get name of the device sending THIS message
-                    h_device = raw.header.hDevice
+                    #h_device = raw.header.hDevice
+                    h_device = ctypes.c_void_p(raw.header.hDevice)
                     size_name = ctypes.c_uint(0)
                     ctypes.windll.user32.GetRawInputDeviceInfoW(h_device, RIDI_DEVICENAME, None,
                                                                 ctypes.byref(size_name))
@@ -155,12 +159,23 @@ def wnd_proc(hwnd, msg, wparam, lparam):
                 key_up = msg_type in (win32con.WM_KEYUP, win32con.WM_SYSKEYUP)
 
                 scancode = raw.keyboard.MakeCode
+                E0 = 0x02
+                if raw.keyboard.Flags & E0:
+                    scancode |= 0xE000
+                #if scancode == 0:
+                #    scancode = raw.keyboard.VKey
                 if scancode == 0:
-                    scancode = raw.keyboard.VKey
-
+                    return win32gui.DefWindowProc(hwnd, msg, wparam, lparam)
                 if key_down:
-                    pressed_keys.add(scancode)
-                    heatmap[scancode] += 1
+                    #pressed_keys.add(scancode)
+                    #heatmap[scancode] += 1
+                    #heatmap[(scancode, time.time())]
+                    #heatmap[(scancode, time.time())] += 1
+                    if scancode not in pressed_keys:  # prevents repeats while holding
+                        pressed_keys.add(scancode)
+                        unique_keys.add(scancode)
+                        heatmap[scancode] += 1
+                        total_presses += 1
                 elif key_up:
                     pressed_keys.discard(scancode)
 
@@ -234,7 +249,7 @@ def run_keyboard_test(vid, pid, duration=10):
     return {
         "duration_sec": duration,
         "max_simultaneous_keys": max_keys,
-        "nkro_supported": max_keys > 6,
+        "nkro_supported": max_keys >= 10,
         "heatmap": dict(heatmap),
     }
 
@@ -248,6 +263,7 @@ if __name__ == "__main__":
     print(f"Max simultaneous keys: {result['max_simultaneous_keys']}")
     print(f"NKRO supported: {result['nkro_supported']}")
     print(f"Unique keys pressed: {len(result['heatmap'])}")
+    print(f"Total key presses: {sum(result['heatmap'].values())}")
 
     #Doesnt work since windows doesnt allow for easy device lock
     # Hidapi is far better, but requires Linux since windows blocks access
