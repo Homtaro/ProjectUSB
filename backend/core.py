@@ -2,7 +2,7 @@
 
 import backend.modules.testingModule as testingModule
 import backend.modules.usbMonitoring as usbMonitoring
-
+import backend.modules.hwTests.keyboard.keyboardWindowsIsolatedRefactor as keyboardTest
 
 class BackendService:
     """Main backend service class that handles business logic."""
@@ -14,6 +14,18 @@ class BackendService:
         print("Hello world")
         #usbMonitoring.test_check_usb()
         #usbMonitoring.check_usb_all()
+
+        # VID = 0x258A
+        # PID = 0x010C
+        #
+        # result = keyboardTest.run_keyboard_test(VID, PID, duration=10)
+        #
+        # print("\n=== TEST RESULT ===")
+        # print(f"Max simultaneous keys: {result['max_simultaneous_keys']}")
+        # print(f"NKRO supported: {result['nkro_supported']}")
+        # print(f"Unique keys pressed: {len(result['heatmap'])}")
+        # print(f"Total key presses: {sum(result['heatmap'].values())}")
+
 
         device_info_list = usbMonitoring.get_all_devices_info()
         for dev_info in device_info_list:
@@ -30,6 +42,8 @@ class BackendService:
         for dev in devices:
             print(usbMonitoring.format_device_tree(dev))
             print("\n" + "=" * 50 + "\n")
+
+
 
     def get_status(self) -> str:
         """Get the current status of the backend service.
