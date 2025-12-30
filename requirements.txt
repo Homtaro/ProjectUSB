@@ -1,2 +1,4 @@
+numpy
+sounddevice
 hidapi
 PySide6>=6.6.1
