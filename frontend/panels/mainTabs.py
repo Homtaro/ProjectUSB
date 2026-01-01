@@ -6,8 +6,9 @@ from frontend.panels.device_test_journal import JournalPanel
 
 
 class MainPanel(QWidget):
-    def __init__(self):
+    def __init__(self, backend):
         super().__init__()
+        self.backend = backend
 
         layout = QVBoxLayout(self)
         layout.setContentsMargins(0, 0, 0, 0)
@@ -15,10 +16,14 @@ class MainPanel(QWidget):
         tabs = QTabWidget()
         tabs.setTabPosition(QTabWidget.North)
 
-        tabs.addTab(DevicePanel(), "Devices")
-        tabs.addTab(HardwareTests(), "Hardware Tests")  # placeholder
-        tabs.addTab(JournalPanel(), "Test Journal")  # later
-        tabs.addTab(WindowsSettingsMenu(), "Demo")    # later
+        self.device_panel = DevicePanel(backend)
+        self.hw_test = HardwareTests(backend)
+        self.journal_panel = JournalPanel(backend)
+
+        tabs.addTab(self.device_panel, "Devices")
+        tabs.addTab(self.hw_test, "Hardware Tests")
+        tabs.addTab(self.journal_panel, "Test Journal")
+        tabs.addTab(WindowsSettingsMenu(), "Demo") #Placeholder
 
         layout.addWidget(tabs)
 

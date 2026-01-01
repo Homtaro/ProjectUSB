@@ -10,8 +10,11 @@ class BackendService:
     def __init__(self):
         """Initialize the backend service."""
         self._data = {}
-        print(testingModule.test())
-        print("Hello world")
+
+
+
+        # print(testingModule.test())
+        # print("Hello world")
         #usbMonitoring.test_check_usb()
         #usbMonitoring.check_usb_all()
 
@@ -27,21 +30,21 @@ class BackendService:
         # print(f"Total key presses: {sum(result['heatmap'].values())}")
 
 
-        device_info_list = usbMonitoring.get_all_devices_info()
-        for dev_info in device_info_list:
-           print(dev_info)
-
-        usbMonitoring.testing_decoder()
-
-        device_info_list_decoded = usbMonitoring.get_all_devices_info_decoded()
-        for dev_info in device_info_list_decoded:
-            print(dev_info)
-
-        devices = usbMonitoring.load_devices()
-
-        for dev in devices:
-            print(usbMonitoring.format_device_tree(dev))
-            print("\n" + "=" * 50 + "\n")
+        # device_info_list = usbMonitoring.get_all_devices_info()
+        # for dev_info in device_info_list:
+        #    print(dev_info)
+        #
+        # usbMonitoring.testing_decoder()
+        #
+        # device_info_list_decoded = usbMonitoring.get_all_devices_info_decoded()
+        # for dev_info in device_info_list_decoded:
+        #     print(dev_info)
+        #
+        # devices = usbMonitoring.load_devices()
+        #
+        # for dev in devices:
+        #     print(usbMonitoring.format_device_tree(dev))
+        #     print("\n" + "=" * 50 + "\n")
 
 
 
@@ -74,6 +77,12 @@ class BackendService:
             str | None: The last processed result or None if no data has been processed.
         """
         return self._data.get("last_result")
+
+    def get_usb_devices(self):
+        """
+        Returns decoded USB device info list
+        """
+        return usbMonitoring.get_all_devices_info_decoded()
 
 #Remove Later
 if __name__ == "__main__":
