@@ -18,7 +18,7 @@ class DevicePanel(QWidget):
         super().__init__()
         self.backend = backend
         self._build_ui()
-        self.refresh_devices()
+        self._populate_dummy_data()
 
     def _build_ui(self):
         main_layout = QVBoxLayout(self)
@@ -95,67 +95,30 @@ class DevicePanel(QWidget):
         # ================= SIGNALS =================
         self.device_tree.currentItemChanged.connect(self._on_device_selected)
 
-    def refresh_devices(self):
-        self.device_tree.clear()
+    def _populate_dummy_data(self):
+        root = QTreeWidgetItem(self.device_tree, ["USB Root Hub"])
+        hub1 = QTreeWidgetItem(root, ["Generic USB Hub"])
+        QTreeWidgetItem(hub1, ["USB Keyboard"])
+        QTreeWidgetItem(hub1, ["USB Mouse"])
 
-        devices = self.backend.get_usb_devices()
-
-        root = QTreeWidgetItem(self.device_tree, ["USB Devices"])
-
-        stats = {
-            "total": 0,
-            "hub": 0,
-            "hid": 0,
-            "audio": 0,
-            "storage": 0,
-        }
-
-        for dev in devices:
-            stats["total"] += 1
-
-            name = dev["device_name"] or "Unknown Device"
-            vid = dev["vid"]
-            pid = dev["pid"]
-
-            item = QTreeWidgetItem(root, [name])
-            item.setData(0, Qt.UserRole, dev)
-
-            class_name = dev["class_name"]
-
-            if "Hub" in class_name:
-                stats["hub"] += 1
-            if "Human Interface" in class_name:
-                stats["hid"] += 1
-            if "Audio" in class_name:
-                stats["audio"] += 1
-            if "Mass Storage" in class_name:
-                stats["storage"] += 1
+        hub2 = QTreeWidgetItem(root, ["External Hub"])
+        QTreeWidgetItem(hub2, ["USB Flash Drive"])
 
         self.device_tree.expandAll()
 
-        self.lbl_total.setText(f"Devices: {stats['total']}")
-        self.lbl_hubs.setText(f"Hubs: {stats['hub']}")
-        self.lbl_hid.setText(f"HID: {stats['hid']}")
-        self.lbl_audio.setText(f"Audio: {stats['audio']}")
-        self.lbl_storage.setText(f"Storage: {stats['storage']}")
+        self.lbl_total.setText("Devices: 5")
+        self.lbl_hubs.setText("Hubs: 2")
+        self.lbl_hid.setText("HID: 2")
+        self.lbl_audio.setText("Audio: 0")
+        self.lbl_storage.setText("Storage: 1")
 
     def _on_device_selected(self, item, _):
         if not item:
             return
 
-        dev = item.data(0, Qt.UserRole)
-        if not dev:
-            return
-
-        self.lbl_name.setText(dev["device_name"] or "—")
-        self.lbl_vid.setText(dev["vid"])
-        self.lbl_pid.setText(dev["pid"])
-        self.lbl_class.setText(dev["class_name"])
-
-        power = dev.get("power", {})
-        self.lbl_power.setText(
-            f'{power.get("max_power_ma", "—")} mA'
-        )
-
-        self.lbl_speed.setText("—")  # optional later
-
+        self.lbl_name.setText(item.text(0))
+        self.lbl_vid.setText("0x1234")
+        self.lbl_pid.setText("0x5678")
+        self.lbl_class.setText("HID")
+        self.lbl_speed.setText("Full Speed")
+        self.lbl_power.setText("100 mA")

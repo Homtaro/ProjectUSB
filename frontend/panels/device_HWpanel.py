@@ -7,6 +7,14 @@ from PySide6.QtGui import QFont
 
 from frontend.style.theme import *
 
+from frontend.panels.hwTests.keyboard.multiTestKeyboard import KeyboardMultiTestWindow
+from frontend.panels.hwTests.mouse.multiTestMouse import MouseMultiTestWindow
+from frontend.panels.hwTests.gamepad.multiTestGamepad import GamepadMultiTestWindow
+from frontend.panels.hwTests.audio.audioOut import AudioOutputTestWindow
+from frontend.panels.hwTests.audio.audioIn import AudioInputTestWindow
+from frontend.panels.hwTests.storage.singleFileTest import SingleFileStorageTestWindow
+from frontend.panels.hwTests.storage.multiFileTest import MultiFileStorageTestWindow
+
 
 ACCENT_COLOR = "#0078d7"
 
@@ -53,23 +61,11 @@ class DeviceCategoryButton(QPushButton):
 # Windows-style test tile
 # -----------------------------
 class TestTile(QFrame):
-    def __init__(self, title: str, description: str, parent=None):
+    def __init__(self, title: str, description: str, on_click=None, parent=None):
         super().__init__(parent)
-
+        self.on_click = on_click
         self.setFixedSize(200, 110)
         self.setCursor(Qt.PointingHandCursor)
-
-        # self.setStyleSheet(f"""
-        #     QFrame {{
-        #         background-color: #1e1e1e;
-        #         border: 1px solid #2d2d2d;
-        #         border-radius: 6px;
-        #     }}
-        #     QFrame:hover {{
-        #         border: 1px solid {ACCENT_COLOR};
-        #         background-color: #252525;
-        #     }}
-        # """)
 
         self.setStyleSheet("""
             QFrame {
@@ -86,73 +82,55 @@ class TestTile(QFrame):
         layout.setContentsMargins(12, 12, 12, 12)
         layout.setSpacing(6)
 
-        # title_label = QLabel(title)
-        # title_label.setFont(QFont("Segoe UI Semibold", 10))
-        # title_label.setStyleSheet(f"""
-        #     QLabel {{
-        #         color: #ffffff;
-        #         padding: 6px 8px;
-        #         border: 1px solid #393939;
-        #         border-radius: 4px;
-        #         background-color: #1a1a1a;
-        #     }}
-        # """)
-
         title_label = QLabel(title)
         title_label.setFont(QFont("Segoe UI Semibold", 12))
-        title_label.setStyleSheet(f"""
-                    QLabel {{
-                        color: #cccccc;
-                    }}
-                """)
-
-        # desc_label = QLabel(description)
-        # desc_label.setFont(QFont("Segoe UI", 9))
-        # desc_label.setWordWrap(True)
-        # desc_label.setStyleSheet("""
-        #     QLabel {
-        #         color: #b0b0b0;
-        #         padding: 5px;
-        #         border: 1px solid #2a2a2a;
-        #         border-radius: 3px;
-        #         background-color: #181818;
-        #         min-height: 38px;
-        #     }
-        # """)
-
-        # desc_label = QLabel(description)
-        # desc_label.setFont(QFont("Segoe UI", 9))
-        # desc_label.setWordWrap(True)
-        # desc_label.setStyleSheet(f"""
-        #     QLabel {{
-        #         color: #b0b0b0;
-        #         padding: 4px 2px 8px 2px;
-        #         border: none;
-        #         border-bottom: 2px solid #393939;
-        #     }}
-        # """)
+        title_label.setStyleSheet("""
+            QLabel {
+                color: #cccccc;
+                background-color: transparent;
+            }
+        """)
 
         desc_label = QLabel(description)
         desc_label.setFont(QFont("Segoe UI", 9))
         desc_label.setWordWrap(True)
-        desc_label.setStyleSheet(f"""
-                    QLabel {{
-                        color: #b0b0b0;
-                    }}
-                """)
+        desc_label.setStyleSheet("""
+            QLabel {
+                color: #b0b0b0;
+                background-color: transparent;
+            }
+        """)
 
         layout.addWidget(title_label)
         layout.addWidget(desc_label)
         layout.addStretch(1)
 
+    def mousePressEvent(self, event):
+        if self.on_click:
+            self.on_click()
+        super().mousePressEvent(event)
 
 # -----------------------------
 # Main Hardware Tests Panel
 # -----------------------------
 class HardwareTests(QWidget):
-    def __init__(self, parent=None):
+    def __init__(self, backend, parent=None,):
         super().__init__(parent)
+        self.backend = backend
         #self.setStyleSheet("background-color: #121212;")
+
+        self.test_windows = {
+            ("Keyboard", "Multitest"): KeyboardMultiTestWindow,
+            ("Mouse", "Multitest"): MouseMultiTestWindow,
+            ("Gamepad (X-Input)", "Multitest"): GamepadMultiTestWindow,
+            ("Audio", "Playback Test"): AudioOutputTestWindow,
+            ("Audio", "Microphone Test"): AudioInputTestWindow,
+            ("Storage", "Singular file test"): SingleFileStorageTestWindow,
+            ("Storage", "Multiple files test"): MultiFileStorageTestWindow,
+        }
+
+        #self._open_windows = []
+        self._open_windows = {}
 
         self.category_buttons = {}
         self.tiles_layout = None
@@ -190,11 +168,6 @@ class HardwareTests(QWidget):
                 ("Multitest", "NKRO, Heatmap"),
             ],
             "Mouse": [
-                ("Multitest", "Heatmap, Polling Rate, Jitter"),
-                ("Multitest", "Heatmap, Polling Rate, Jitter"),
-                ("Multitest", "Heatmap, Polling Rate, Jitter"),
-                ("Multitest", "Heatmap, Polling Rate, Jitter"),
-                ("Multitest", "Heatmap, Polling Rate, Jitter"),
                 ("Multitest", "Heatmap, Polling Rate, Jitter"),
             ],
             "Gamepad (X-Input)": [
@@ -277,6 +250,12 @@ class HardwareTests(QWidget):
         # Default category
         self.select_category("Keyboard")
 
+    def close_all_test_windows(self):
+        for w in list(self._open_windows.values()):
+            if w:
+                w.close()
+        self._open_windows.clear()
+
     # -----------------------------
     # Category selection logic
     # -----------------------------
@@ -301,23 +280,74 @@ class HardwareTests(QWidget):
     #             TestTile(title, desc)
     #         )
 
+    # def _populate_tiles(self, tests):
+    #     # Clear old tiles
+    #     while self.tiles_layout.count():
+    #         item = self.tiles_layout.takeAt(0)
+    #         if item.widget():
+    #             item.widget().deleteLater()
+    #
+    #     columns = 3  # adjust for taste (2–4 works well)
+    #     row = 0
+    #     col = 0
+    #
+    #     for title, desc in tests:
+    #         tile = TestTile(title, desc)
+    #         self.tiles_layout.addWidget(tile, row, col)
+    #
+    #         col += 1
+    #         if col >= columns:
+    #             col = 0
+    #             row += 1
+
     def _populate_tiles(self, tests):
-        # Clear old tiles
         while self.tiles_layout.count():
             item = self.tiles_layout.takeAt(0)
             if item.widget():
                 item.widget().deleteLater()
 
-        columns = 3  # adjust for taste (2–4 works well)
-        row = 0
-        col = 0
+        columns = 3
+        row = col = 0
 
         for title, desc in tests:
-            tile = TestTile(title, desc)
+            key = (self.header.text(), title)
+            window_cls = self.test_windows.get(key)
+
+            def open_window(cls=window_cls, key=key):
+                if not cls:
+                    return
+
+                if key in self._open_windows:
+                    w = self._open_windows[key]
+                    w.raise_()
+                    w.activateWindow()
+                    return
+
+                w = cls()
+                w.setWindowFlag(Qt.Window)
+                w.setAttribute(Qt.WA_DeleteOnClose, True)
+
+                def on_close(event, k=key):
+                    self._open_windows.pop(k, None)
+                    event.accept()
+
+                w.closeEvent = on_close
+
+                self._open_windows[key] = w
+
+                w.show()
+                w.raise_()
+                w.activateWindow()
+
+
+                w.destroyed.connect(lambda _, k=key: self._open_windows.pop(k, None))
+
+                self._open_windows[key] = w
+
+            tile = TestTile(title, desc, on_click=open_window)
             self.tiles_layout.addWidget(tile, row, col)
 
             col += 1
             if col >= columns:
                 col = 0
                 row += 1
-

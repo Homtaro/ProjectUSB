@@ -51,6 +51,7 @@ class JournalEntryItem(QFrame):
         top.setStyleSheet(f"""
             QLabel {{
                 color: {TEXT_MUTED};
+                background-color: transparent;
             }}
         """)
 
@@ -59,6 +60,7 @@ class JournalEntryItem(QFrame):
         name.setStyleSheet(f"""
             QLabel {{
                 color: {TEXT_PRIMARY};
+                background-color: transparent;
             }}
         """)
 
@@ -67,6 +69,7 @@ class JournalEntryItem(QFrame):
         meta.setStyleSheet(f"""
             QLabel {{
                 color: {TEXT_SECONDARY};
+                background-color: transparent;
             }}
         """)
 
@@ -80,8 +83,9 @@ class JournalEntryItem(QFrame):
 # Journal panel
 # --------------------------------
 class JournalPanel(QWidget):
-    def __init__(self, parent=None):
+    def __init__(self, backend, parent=None):
         super().__init__(parent)
+        self.backend = backend
 
         main_layout = QHBoxLayout(self)
         main_layout.setContentsMargins(0, 0, 0, 0)

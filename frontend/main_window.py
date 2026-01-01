@@ -1,6 +1,7 @@
 """Main window for ProjectUSB application."""
 
 from PySide6.QtCore import Qt
+from PySide6.QtGui import QCloseEvent
 from PySide6.QtWidgets import (
     QHBoxLayout,
     QLabel,
@@ -13,7 +14,6 @@ from PySide6.QtWidgets import (
 )
 
 from backend import BackendService
-from frontend.panels.device_panel import DevicePanel
 from frontend.panels.mainTabs import MainPanel
 
 
@@ -37,7 +37,7 @@ class MainWindow(QMainWindow):
        # self.device_panel = DevicePanel()
        # self.setCentralWidget(self.device_panel)
 
-        self.main_panel = MainPanel()
+        self.main_panel = MainPanel(self._backend)
         self.setCentralWidget(self.main_panel)
 
     def _on_process_clicked(self):
@@ -47,3 +47,13 @@ class MainWindow(QMainWindow):
             result = self._backend.process_data(input_data)
             self._output_text.append(result)
             self._input_field.clear()
+
+    def closeEvent(self, event: QCloseEvent):
+        try:
+            #select HardwareTests panel
+            hw_panel = self.main_panel.hw_test
+            hw_panel.close_all_test_windows()
+        except AttributeError:
+            pass
+
+        event.accept()
