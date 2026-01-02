@@ -323,7 +323,7 @@ class HardwareTests(QWidget):
                     w.activateWindow()
                     return
 
-                w = cls()
+                w = cls(self.backend)
                 w.setWindowFlag(Qt.Window)
                 w.setAttribute(Qt.WA_DeleteOnClose, True)
 

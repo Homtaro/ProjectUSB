@@ -4,8 +4,9 @@ from PySide6.QtCore import Qt
 
 
 class BaseTestWindow(QWidget):
-    def __init__(self, title: str, subtitle: str = "", parent=None):
+    def __init__(self, backend, title: str, subtitle: str = "", parent=None):
         super().__init__(parent)
+        self.backend = backend
 
         self.setWindowTitle(title)
         self.setMinimumSize(800, 500)
