@@ -35,5 +35,6 @@ class BaseTestWindow(QWidget):
 
         layout.addWidget(title_lbl)
         layout.addWidget(subtitle_lbl)
-        layout.addStretch(1)
-        layout.addWidget(placeholder, 1)
+        #layout.addStretch(0.5)
+        layout.addSpacing(8)
+        # layout.addWidget(placeholder, 1)
