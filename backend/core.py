@@ -3,6 +3,8 @@
 import backend.modules.testingModule as testingModule
 import backend.modules.usbMonitoring as usbMonitoring
 import backend.modules.hwTests.keyboard.keyboardWindows as keyboardTest
+from backend.modules.hwTests.keyboard.keyboard_service import KeyboardTestWorker
+
 
 class BackendService:
     """Main backend service class that handles business logic."""
@@ -11,24 +13,24 @@ class BackendService:
         """Initialize the backend service."""
         self._data = {}
 
-        print(testingModule.test())
-        print("Hello world")
-
-        usbMonitoring.testing_decoder()
-
-        device_info_list = usbMonitoring.get_all_devices_info()
-        for dev_info in device_info_list:
-           print(dev_info)
-
-        device_info_list_decoded = usbMonitoring.get_all_devices_info_decoded()
-        for dev_info in device_info_list_decoded:
-            print(dev_info)
-
-        devices = usbMonitoring.load_devices()
-
-        for dev in devices:
-            print(usbMonitoring.format_device_tree(dev))
-            print("\n" + "=" * 50 + "\n")
+        # print(testingModule.test())
+        # print("Hello world")
+        #
+        # usbMonitoring.testing_decoder()
+        #
+        # device_info_list = usbMonitoring.get_all_devices_info()
+        # for dev_info in device_info_list:
+        #    print(dev_info)
+        #
+        # device_info_list_decoded = usbMonitoring.get_all_devices_info_decoded()
+        # for dev_info in device_info_list_decoded:
+        #     print(dev_info)
+        #
+        # devices = usbMonitoring.load_devices()
+        #
+        # for dev in devices:
+        #     print(usbMonitoring.format_device_tree(dev))
+        #     print("\n" + "=" * 50 + "\n")
 
 
 
@@ -79,6 +81,17 @@ class BackendService:
         Resolve best display name for device info dict
         """
         return usbMonitoring.resolve_display_name(info)
+
+    def create_keyboard_test(self, vid: int, pid: int, duration: int = 0) -> KeyboardTestWorker:
+        """
+        Create a keyboard test worker for given device.
+        UI owns the thread lifecycle.
+        """
+        return KeyboardTestWorker(
+            vid=vid,
+            pid=pid,
+            duration=duration
+        )
 
 
 #Remove Later
