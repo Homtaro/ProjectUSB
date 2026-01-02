@@ -3429,6 +3429,10 @@
     "0xffee": "FNK Tech"
   },
   "devices": {
+    "0x13d3:0x56a2": "AzureWave USB2.0 HD UVC WebCam",
+    "0x067b:0x2586": "USB 2.0 Hub",
+    "0x1b3f:0x336c": "HATOR Signify",
+    "0x258a:0x010c": "Aula F87 Pro",
     "0x0001:0x7778": "Counterfeit flash drive [Kingston]",
     "0x0002:0x0002": "passport00",
     "0x0002:0x7007": "HPRT XT300",

@@ -48,6 +48,7 @@ def provide_windows_info(info, windows_devices):
             }
             break
 
+
 #Testing purposes
 if __name__ == "__main__":
     #print with formatting

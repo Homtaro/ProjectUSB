@@ -11,40 +11,24 @@ class BackendService:
         """Initialize the backend service."""
         self._data = {}
 
+        print(testingModule.test())
+        print("Hello world")
 
+        usbMonitoring.testing_decoder()
 
-        # print(testingModule.test())
-        # print("Hello world")
-        #usbMonitoring.test_check_usb()
-        #usbMonitoring.check_usb_all()
+        device_info_list = usbMonitoring.get_all_devices_info()
+        for dev_info in device_info_list:
+           print(dev_info)
 
-        # VID = 0x258A
-        # PID = 0x010C
-        #
-        # result = keyboardTest.run_keyboard_test(VID, PID, duration=10)
-        #
-        # print("\n=== TEST RESULT ===")
-        # print(f"Max simultaneous keys: {result['max_simultaneous_keys']}")
-        # print(f"NKRO supported: {result['nkro_supported']}")
-        # print(f"Unique keys pressed: {len(result['heatmap'])}")
-        # print(f"Total key presses: {sum(result['heatmap'].values())}")
+        device_info_list_decoded = usbMonitoring.get_all_devices_info_decoded()
+        for dev_info in device_info_list_decoded:
+            print(dev_info)
 
+        devices = usbMonitoring.load_devices()
 
-        # device_info_list = usbMonitoring.get_all_devices_info()
-        # for dev_info in device_info_list:
-        #    print(dev_info)
-        #
-        # usbMonitoring.testing_decoder()
-        #
-        # device_info_list_decoded = usbMonitoring.get_all_devices_info_decoded()
-        # for dev_info in device_info_list_decoded:
-        #     print(dev_info)
-        #
-        # devices = usbMonitoring.load_devices()
-        #
-        # for dev in devices:
-        #     print(usbMonitoring.format_device_tree(dev))
-        #     print("\n" + "=" * 50 + "\n")
+        for dev in devices:
+            print(usbMonitoring.format_device_tree(dev))
+            print("\n" + "=" * 50 + "\n")
 
 
 
@@ -83,6 +67,19 @@ class BackendService:
         Returns decoded USB device info list
         """
         return usbMonitoring.get_all_devices_info_decoded()
+
+    def get_usb_devices_full(self):
+        """
+        Returns full USB device info list
+        """
+        return usbMonitoring.get_all_devices_full_info()
+
+    def resolve_device_name_format(self, info: dict) -> str:
+        """
+        Resolve best display name for device info dict
+        """
+        return usbMonitoring.resolve_display_name(info)
+
 
 #Remove Later
 if __name__ == "__main__":
