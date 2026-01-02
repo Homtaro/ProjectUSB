@@ -7,7 +7,7 @@ from PySide6.QtWidgets import (
     QFormLayout,
     QVBoxLayout,
     QHBoxLayout,
-    QFrame, QTextEdit, QListWidget,
+    QFrame, QTextEdit, QListWidget, QListWidgetItem,
 )
 
 from backend.modules.usbMonitoring import format_device_tree_full
@@ -37,18 +37,24 @@ class DevicePanel(QWidget):
         top_layout.setSpacing(5)
 
         # ================= DEVICE TREE =================
-        self.device_tree = QTreeWidget()
-        # TODO: REWRITE INTO QLISTWIDGET
-        #self.device_tree = QListWidget()
-        self.device_tree.setHeaderLabel("USB Devices")
-        self.device_tree.setFixedWidth(320)
-        self.device_tree.setDragEnabled(False)
 
+        # self.device_tree = QTreeWidget()
+        # # TODO: REWRITE INTO QLISTWIDGET
+        # #self.device_tree = QListWidget()
+        # self.device_tree.setHeaderLabel("USB Devices")
+        # self.device_tree.setFixedWidth(320)
+        # self.device_tree.setDragEnabled(False)
+        #
+        # self.device_tree.setHorizontalScrollBarPolicy(Qt.ScrollBarAsNeeded)
+        # self.device_tree.setTextElideMode(Qt.ElideNone)
+        #
+        # #TODO: CHANGE THIS LATER INTO AUTOMATIC HELPER FUNCTION
+        # self.device_tree.setColumnWidth(0, self.device_tree.width()+150)
+
+        self.device_tree = QListWidget()
+        self.device_tree.setFixedWidth(320)
         self.device_tree.setHorizontalScrollBarPolicy(Qt.ScrollBarAsNeeded)
         self.device_tree.setTextElideMode(Qt.ElideNone)
-
-        #TODO: CHANGE THIS LATER INTO AUTOMATIC HELPER FUNCTION
-        self.device_tree.setColumnWidth(0, self.device_tree.width()+150)
 
         top_layout.addWidget(self.device_tree)
 
@@ -123,7 +129,7 @@ class DevicePanel(QWidget):
 
         devices = self.backend.get_usb_devices_full()
 
-        root = QTreeWidgetItem(self.device_tree, ["USB Devices"])
+        #root = QTreeWidgetItem(self.device_tree, ["USB Devices"])
 
         stats = {
             "total": 0,
@@ -147,9 +153,14 @@ class DevicePanel(QWidget):
             vid = dev["vid"]
             pid = dev["pid"]
 
-            item = QTreeWidgetItem(root, [name])
-            item.setToolTip(0, name)
-            item.setData(0, Qt.UserRole, dev)
+            # item = QTreeWidgetItem(root, [name])
+            # item.setToolTip(0, name)
+            # item.setData(0, Qt.UserRole, dev)
+
+            item = QListWidgetItem(name)
+            item.setToolTip(name)
+            item.setData(Qt.UserRole, dev)
+            self.device_tree.addItem(item)
 
             class_name = dev["class_name"]
 
@@ -192,7 +203,7 @@ class DevicePanel(QWidget):
             # if "Mass Storage" in class_name:
             #     stats["storage"] += 1
 
-        self.device_tree.expandAll()
+        #self.device_tree.expandAll()
 
         self.lbl_total.setText(f"Devices: {stats['total']}")
         self.lbl_hubs.setText(f"Hubs: {stats['hub']}")
@@ -229,10 +240,11 @@ class DevicePanel(QWidget):
     #     self.details_text.setPlainText(text)
 
     def _on_device_selected(self, item, _):
+
         if not item:
             return
 
-        info = item.data(0, Qt.UserRole)
+        info = item.data(Qt.UserRole)
         if not info:
             return
 

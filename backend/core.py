@@ -2,7 +2,7 @@
 
 import backend.modules.testingModule as testingModule
 import backend.modules.usbMonitoring as usbMonitoring
-import backend.modules.hwTests.keyboard.keyboardWindowsIsolatedRefactor as keyboardTest
+import backend.modules.hwTests.keyboard.keyboardWindows as keyboardTest
 
 class BackendService:
     """Main backend service class that handles business logic."""
