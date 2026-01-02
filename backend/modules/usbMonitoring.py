@@ -75,18 +75,23 @@ def get_all_devices_info_decoded():
 
     return result
 
+
+def get_all_devices_full_info():
+    devices = list(load_devices())
+    windows_devices = get_windows_usb_devices()
+
+    return [
+        get_device_info_full(dev, windows_devices)
+        for dev in devices
+    ]
+
+
 def is_keyboard_interface(interface):
     return (
         interface["class"] == "0x03" and
         interface["subclass"] == "0x01" and
         interface["protocol"] == "0x01"
     )
-
-
-
-
-
-
 
 def test_check_usb():
 
@@ -321,6 +326,92 @@ def get_device_info_decoded(dev):
     return info
 
 
+def get_device_info_full(dev, windows_devices=None):
+    """
+    Returns FULL normalized device info for frontend consumption.
+    """
+
+    info = {
+        "vid": hex(dev.idVendor),
+        "pid": hex(dev.idProduct),
+
+        "vendor_name": decode_vendor(dev.idVendor),
+
+        "device_name": decode_device(dev.idVendor, dev.idProduct),
+
+
+        "usb_version": hex(dev.bcdUSB),
+        
+        "class": hex(dev.bDeviceClass),
+        "class_name": decode_class(dev.bDeviceClass),
+
+        "manufacturer": None,
+        "product": None,
+        "serial": None,
+
+        "power": {},
+        "interfaces": [],
+    }
+
+    # ---- Strings ----
+    try:
+        info["manufacturer"] = usb.util.get_string(dev, dev.iManufacturer)
+        info["product"] = usb.util.get_string(dev, dev.iProduct)
+        info["serial"] = usb.util.get_string(dev, dev.iSerialNumber)
+    except Exception:
+        pass
+
+    # ---- Configuration ----
+    try:
+        cfg = dev.get_active_configuration()
+    except (usb.core.USBError, NotImplementedError):
+        cfg = dev[0]
+
+    info["power"] = {
+        "max_power_ma": cfg.bMaxPower * 2,
+        "self_powered": bool(cfg.bmAttributes & 0x40),
+    }
+
+    seen = set()
+
+    for intf in cfg:
+        key = (
+            intf.bInterfaceNumber,
+            intf.bInterfaceClass,
+            intf.bInterfaceSubClass,
+            intf.bInterfaceProtocol,
+        )
+
+        if key in seen:
+            continue
+        seen.add(key)
+
+        info["interfaces"].append({
+            "number": intf.bInterfaceNumber,
+
+            "class": hex(intf.bInterfaceClass),
+            "class_name": decode_class(intf.bInterfaceClass),
+
+            "subclass": hex(intf.bInterfaceSubClass),
+            "subclass_name": decode_subclass(
+                intf.bInterfaceClass, intf.bInterfaceSubClass
+            ),
+
+            "protocol": hex(intf.bInterfaceProtocol),
+            "protocol_name": decode_protocol(
+                intf.bInterfaceClass,
+                intf.bInterfaceSubClass,
+                intf.bInterfaceProtocol,
+            ),
+        })
+
+    # ---- Windows enrichment ----
+    if windows_devices:
+        provide_windows_info(info, windows_devices)
+
+    return info
+
+
 
 def format_device_tree(dev):
     """Return a formatted tree-style USB information block."""
@@ -376,7 +467,169 @@ def format_device_tree(dev):
 
     return tree
 
+# def format_device_tree_full(info: dict) -> str:
+#     lines = []
+#
+#     lines.append("USB Device")
+#     lines.append("├─ Basic Info")
+#     lines.append(f"│   ├─ VID:PID          -> '{info['vid']}:{info['pid']}'")
+#     lines.append(f"│   ├─ Device Class     -> '{info['class']}'")
+#     lines.append(f"│   ├─ USB Version      -> '{info['usb_version']}'")
+#     lines.append(f"│   ├─ Manufacturer     -> '{info['manufacturer']}'")
+#     lines.append(f"│   ├─ Product          -> '{info['product']}'")
+#     lines.append(f"│   └─ Serial Number    -> '{info['serial']}'")
+#     lines.append("│")
+#
+#     lines.append("├─ Power Info")
+#     lines.append(f"│   ├─ Max Power (mA)   -> {info['power']['max_power_ma']}")
+#     lines.append(f"│   └─ Self-Powered     -> {info['power']['self_powered']}")
+#     lines.append("│")
+#
+#     lines.append("├─ Interfaces")
+#     for idx, intf in enumerate(info["interfaces"]):
+#         prefix = "│   ├─" if idx < len(info["interfaces"]) - 1 else "│   └─"
+#         lines.append(f"{prefix} Interface #{intf['number']}")
+#         lines.append(f"│   │   ├─ Class        -> '{intf['class']}'")
+#         lines.append(f"│   │   ├─ SubClass     -> '{intf['subclass']}'")
+#         lines.append(f"│   │   └─ Protocol     -> '{intf['protocol']}'")
+#
+#     lines.append("│")
+#     lines.append(f"└─ Device Type           -> '{info['class_name']}'")
+#
+#     if "windows" in info:
+#         w = info["windows"]
+#         lines.append("")
+#         lines.append("Windows Info")
+#         lines.append(f"├─ Friendly Name -> '{w.get('friendly_name')}'")
+#         lines.append(f"├─ Driver        -> '{w.get('driver')}'")
+#         lines.append(f"└─ Status        -> '{w.get('status')}'")
+#
+#     return "\n".join(lines)
 
+def format_device_tree_full(info: dict) -> str:
+    lines = []
+
+    lines.append("USB Device")
+    lines.append("├─ Basic Info")
+
+    lines.append(
+        f"│   ├─ VID:PID          -> "
+        f"{info.get('vendor_name')} "
+        f"[{info['vid']}:{info['pid']}]"
+    )
+
+    lines.append(
+        f"│   ├─ Device Name      -> "
+        f"{info.get('device_name')}"
+    )
+
+    lines.append(
+        f"│   ├─ Device Class     -> "
+        f"{info.get('class_name')} "
+        f"[{info.get('class')}]"
+    )
+
+    lines.append(
+        f"│   ├─ USB Version      -> {info.get('usb_version')}"
+    )
+
+    lines.append(
+        f"│   ├─ Manufacturer     -> {info.get('manufacturer')}"
+    )
+
+    lines.append(
+        f"│   ├─ Product          -> {info.get('product')}"
+    )
+
+    lines.append(
+        f"│   └─ Serial Number    -> {info.get('serial')}"
+    )
+
+    lines.append("│")
+    lines.append("├─ Power Info")
+    lines.append(
+        f"│   ├─ Max Power (mA)   -> {info['power'].get('max_power_ma')}"
+    )
+    lines.append(
+        f"│   └─ Self-Powered     -> {info['power'].get('self_powered')}"
+    )
+
+    lines.append("│")
+    lines.append("├─ Interfaces")
+
+    for idx, intf in enumerate(info["interfaces"]):
+        last = idx == len(info["interfaces"]) - 1
+        prefix = "│   └─" if last else "│   ├─"
+
+        lines.append(f"{prefix} Interface #{intf['number']}")
+
+        lines.append(
+            f"│   │   ├─ Class        -> "
+            f"{intf['class_name']} [{intf['class']}]"
+        )
+
+        lines.append(
+            f"│   │   ├─ SubClass     -> "
+            f"{intf['subclass_name']} [{intf['subclass']}]"
+        )
+
+        lines.append(
+            f"│   │   └─ Protocol     -> "
+            f"{intf['protocol_name']} [{intf['protocol']}]"
+        )
+
+    lines.append("│")
+    lines.append(
+        f"└─ Device Type           -> {info.get('class_name')}"
+    )
+
+    if "windows" in info:
+        w = info["windows"]
+        lines.append("")
+        lines.append("Windows Info")
+        lines.append(f"├─ Friendly Name -> {w.get('friendly_name')}")
+        lines.append(f"├─ Driver        -> {w.get('driver')}")
+        lines.append(f"└─ Status        -> {w.get('status')}")
+
+    return "\n".join(lines)
+
+
+def resolve_display_name(info: dict) -> str:
+    # 1. Windows friendly name
+    windows = info.get("windows")
+    if windows:
+        name = windows.get("friendly_name")
+        if name:
+            return name
+
+    # 2. Decoded device name (VID:PID)
+    dev_name = info.get("device_name")
+    if dev_name and dev_name != "Unknown Device":
+        return dev_name
+
+    # 3. Manufacturer + product string
+    manufacturer = info.get("manufacturer")
+    product = info.get("product")
+    if manufacturer or product:
+        return " ".join(filter(None, [manufacturer, product]))
+
+    # 4. Interface-based classification
+    classes = {i["class_name"] for i in info.get("interfaces", [])}
+    if "Human Interface Device" in classes:
+        if any(i["protocol_name"] == "Keyboard" for i in info["interfaces"]):
+            return "Keyboard"
+        if any(i["protocol_name"] == "Mouse" for i in info["interfaces"]):
+            return "Mouse"
+        return "HID Device"
+
+    if "Audio" in classes:
+        return "Audio Device"
+
+    if "Video" in classes:
+        return "Video Device"
+
+    # 5. Fallback
+    return "Unknown Device"
 
 def testing_decoder():
     print(decode_vendor(0x046d))  # Logitech, Inc.
