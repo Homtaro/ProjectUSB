@@ -166,6 +166,8 @@ class DevicePanel(QWidget):
 
             #TODO: REFACTOR THIS INTO BACKEND LATER
 
+
+
             found_types = set()
 
             for i in dev["interfaces"]:

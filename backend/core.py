@@ -6,6 +6,7 @@ import backend.modules.testingModule as testingModule
 import backend.modules.usbMonitoring as usbMonitoring
 import backend.modules.hwTests.keyboard.keyboardWindows as keyboardTest
 from backend.modules.hwTests.keyboard.keyboard_service import KeyboardTestWorker
+from backend.modules.hwTests.mouse.mouse_service import MouseTestWorker
 from backend.modules.scanCodeConvert import scancode_to_key
 
 
@@ -15,6 +16,9 @@ class BackendService:
     def __init__(self):
         """Initialize the backend service."""
         self._data = {}
+
+        print(self.get_hid_keyboards())
+        print(self.get_hid_mouse())
 
         # print(testingModule.test())
         # print("Hello world")
@@ -95,6 +99,73 @@ class BackendService:
             pid=pid,
             duration=duration
         )
+
+    def create_mouse_test(self, vid: int, pid: int, duration: int = 10) -> MouseTestWorker:
+        """
+        Create a mouse test worker for given device.
+        UI owns the thread lifecycle.
+        """
+        return MouseTestWorker(
+            vid=vid,
+            pid=pid,
+            duration=duration
+        )
+
+
+
+    def get_hid_keyboards(self) -> list[dict]:
+        """
+        Returns list of HID keyboard devices (interface-level detection).
+        """
+        devices = usbMonitoring.get_all_devices_info_decoded()
+        keyboards = []
+
+        # for dev in usbMonitoring.get_all_devices_info_decoded():
+        #     print(dev["device_name"])
+        #     for i in dev["interfaces"]:
+        #         print(" ", i["class_name"], i["subclass_name"], i["protocol_name"])
+
+        for dev in devices:
+            for intf in dev.get("interfaces", []):
+                if (
+                        intf.get("class_name") == "Human Interface Device"
+                        and "Boot" in intf.get("subclass_name", "")
+                        and intf.get("protocol_name") == "Keyboard"
+                ):
+                    keyboards.append({
+                        "name": dev["device_name"],
+                        "vid": int(dev["vid"], 16),
+                        "pid": int(dev["pid"], 16),
+                        "interface": intf["number"],
+                    })
+                    break  # one keyboard interface is enough
+
+        return keyboards
+
+
+    def get_hid_mouse(self) -> list[dict]:
+        """
+        Returns list of HID keyboard devices (interface-level detection).
+        """
+        devices = usbMonitoring.get_all_devices_info_decoded()
+        mice = []
+
+        for dev in devices:
+            for intf in dev.get("interfaces", []):
+                if (
+                        intf.get("class_name") == "Human Interface Device"
+                        and "Boot" in intf.get("subclass_name", "")
+                        and intf.get("protocol_name") == "Mouse"
+                ):
+                    mice.append({
+                        "name": dev["device_name"],
+                        "vid": int(dev["vid"], 16),
+                        "pid": int(dev["pid"], 16),
+                        "interface": intf["number"],
+                    })
+                    break  # one keyboard interface is enough
+
+        return mice
 
     def resolve_scancode(self, scancode: int) -> str:
         return scancode_to_key(scancode)
