@@ -1,5 +1,4 @@
 from collections import defaultdict, deque
-from datetime import datetime
 from threading import Lock
 
 from PySide6.QtCore import QObject, Signal, QThread
@@ -9,6 +8,9 @@ from time import strftime
 
 
 class KeyboardTestWorker(QObject):
+    key_down = Signal(int)
+    key_up = Signal(int)
+    stats_updated = Signal(dict)
     finished = Signal(dict)
 
     def __init__(self, vid, pid, duration=0):
@@ -43,8 +45,19 @@ class KeyboardTestWorker(QObject):
                     self.heatmap[scancode] += 1
                     self.total_presses += 1
                     self.max_keys = max(self.max_keys, len(self.pressed_keys))
-            else:
+                self.key_down.emit(scancode)
+
+            elif event_type == "up":
                 self.pressed_keys.discard(scancode)
+                self.key_up.emit(scancode)
+
+            self.stats_updated.emit({
+                "pressed_now": len(self.pressed_keys),
+                "max_simultaneous": self.max_keys,
+                "unique_keys": len(self.heatmap),
+                "total_presses": self.total_presses,
+                "nkro": self.max_keys >= 10,
+            })
 
         result = rawkbd.run_keyboard_test(
             self.vid,
@@ -53,22 +66,6 @@ class KeyboardTestWorker(QObject):
             event_callback=on_event,
             running_flag=lambda: self._running
         )
-
-        result = {
-            "test_name": "KeyboardMultiTest",
-            "timestamp": datetime.now().isoformat(),
-            "device": {
-                "vid": self.vid,
-                "pid": self.pid,
-            },
-            "stats": {
-                "total_presses": self.total_presses,
-                "unique_keys": len(self.heatmap),
-                "max_simultaneous": self.max_keys,
-                "nkro_supported": self.max_keys >= 10,
-            },
-            "heatmap": dict(self.heatmap),
-        }
 
         self.finished.emit(result)
 
@@ -79,12 +76,4 @@ class KeyboardTestWorker(QObject):
                 events.append(self.event_buffer.popleft())
         return events
 
-    def get_stats(self):
-        return {
-            "pressed_now": len(self.pressed_keys),
-            "max_simultaneous": self.max_keys,
-            "unique_keys": len(self.heatmap),
-            "total_presses": self.total_presses,
-            "nkro": self.max_keys >= 10,
-        }
 

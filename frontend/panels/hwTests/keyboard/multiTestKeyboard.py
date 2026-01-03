@@ -2,11 +2,16 @@ import json
 from datetime import time
 from time import strftime
 
-from PySide6.QtCore import Qt, QThread, QEvent, Slot
+from PySide6.QtCore import Qt, QThread, QEvent, Slot, QTimer
 from PySide6.QtWidgets import QPushButton, QHBoxLayout, QListWidget, QFrame, QVBoxLayout, QLabel, QFileDialog
 
 from frontend.panels.hwTests.base_window import BaseTestWindow
 from frontend.panels.hwTests.keyboard.keyboard_visual import KeyboardVisualPanel
+
+# Almost finished state
+# TODO: Make it look better
+# TODO: make it work only when window is focused
+
 
 class KeyboardMultiTestWindow(BaseTestWindow):
     def __init__(self, backend, parent=None):
@@ -23,6 +28,16 @@ class KeyboardMultiTestWindow(BaseTestWindow):
 
         self.thread: QThread | None = None
         self.worker = None
+
+        self._final_result = None
+
+
+        self.ui_timer = QTimer(self)
+        self.ui_timer.setInterval(33)  # ~30 FPS
+        self.ui_timer.timeout.connect(self.refresh_ui)
+        self.ui_timer.start()
+
+
 
         self.keyboard_panel = KeyboardVisualPanel(self)
         self.keyboard_panel.setFocusPolicy(Qt.NoFocus)
@@ -106,6 +121,13 @@ class KeyboardMultiTestWindow(BaseTestWindow):
         self.btn_save.clicked.connect(lambda: self.save_results(self._final_result))
         self.btn_save.setEnabled(False)
 
+        self.btn_stop.setFocusPolicy(Qt.NoFocus)
+        self.btn_reset.setFocusPolicy(Qt.NoFocus)
+        self.btn_save.setFocusPolicy(Qt.NoFocus)
+        self.history.setFocusPolicy(Qt.NoFocus)
+        self.keyboard_panel.setFocusPolicy(Qt.NoFocus)
+
+
     # ================= SIGNALS =================
 
     @Slot(dict)
@@ -136,15 +158,15 @@ class KeyboardMultiTestWindow(BaseTestWindow):
         self.worker.moveToThread(self.thread)
 
         # --- keyboard visual ---
-        self.worker.key_down.connect(self.keyboard_panel.key_down)
-        self.worker.key_up.connect(self.keyboard_panel.key_up)
+        #self.worker.key_down.connect(self.keyboard_panel.key_down)
+        #self.worker.key_up.connect(self.keyboard_panel.key_up)
 
         # --- history ---
-        self.worker.key_down.connect(lambda sc: self.on_key_event(sc, True))
-        self.worker.key_up.connect(lambda sc: self.on_key_event(sc, False))
+        #self.worker.key_down.connect(lambda sc: self.on_key_event(sc, True))
+        #self.worker.key_up.connect(lambda sc: self.on_key_event(sc, False))
 
         # --- stats ---
-        self.worker.stats_updated.connect(self.update_stats)
+        #self.worker.stats_updated.connect(self.update_stats)
 
         # --- lifecycle ---
         self.thread.started.connect(self.worker.run)
@@ -172,22 +194,44 @@ class KeyboardMultiTestWindow(BaseTestWindow):
             e.accept()
         return super().event(e)
 
+    def refresh_ui(self):
+        if not self.worker:
+            return
+
+        # process buffered key events
+        for event_type, scancode in self.worker.pop_events(100):
+            if event_type == "down":
+                self.keyboard_panel.key_down(scancode)
+                self.add_history(scancode, True)
+            else:
+                self.keyboard_panel.key_up(scancode)
+                self.add_history(scancode, False)
+
+        # update stats
+        stats = self.worker.get_stats()
+        if stats:
+            self.update_stats(stats)
+
+    def add_history(self, scancode, is_down):
+        ts = strftime("%H:%M:%S")
+        key_name = self.backend.resolve_scancode(scancode)
+
+        self.history.addItem(
+            f"[{ts}] {'DOWN' if is_down else 'UP'} 0x{scancode:X} [{key_name}]"
+        )
+        self.history.scrollToBottom()
+
     def stop_test(self):
-        if self.worker:
-            self.worker.stop()
+        if not self.worker:
+            return
+
+        self.btn_stop.setEnabled(False)
+        self.worker.stop()
 
     def reset_test(self):
         if self.worker:
-            self.worker.stop()
+            return  # safety: should never happen if UI is correct
 
-        if self.thread:
-            self.thread.quit()
-            self.thread.wait()
-
-        self.worker = None
-        self.thread = None
-
-        # Clear UI
         self.history.clear()
         self.keyboard_panel.reset()
 
@@ -198,31 +242,51 @@ class KeyboardMultiTestWindow(BaseTestWindow):
         self.lbl_nkro.setText("NO")
 
         self.btn_save.setEnabled(False)
-
+        self.btn_stop.setEnabled(True)
         self.start_test()
 
     def save_results(self, result):
-        path, _ = QFileDialog.getSaveFileName(
-            self,
-            "Save keyboard test",
-            "keyboard_test.json",
-            "JSON Files (*.json)"
-        )
-        if not path:
+
+        if not result:
+            print("No test result to save")
             return
+
+        print("Result:", result)
+
+        path = self.backend.get_journal_path(
+            test_name=result["test_name"],
+            vid=result["device"]["vid"],
+            pid=result["device"]["pid"],
+        )
 
         with open(path, "w", encoding="utf-8") as f:
             json.dump(result, f, indent=2)
 
+        print(f"Saved test to {path}")
+
     def on_test_finished(self, result):
         self._final_result = result
+
+        # UI state
         self.btn_save.setEnabled(True)
+        self.btn_stop.setEnabled(False)
+        self.btn_reset.setEnabled(True)
+
+        # HARD rule: after this point, worker & thread are DEAD
+        self.worker = None
+        self.thread = None
 
     def on_key_event(self, scancode, is_down):
         ts = strftime("%H:%M:%S")
         text = f"[{ts}] {'DOWN' if is_down else 'UP'} 0x{scancode:X}"
         self.history.addItem(text)
         self.history.scrollToBottom()
+
+    def keyPressEvent(self, event):
+        if event.key() in (Qt.Key_Tab, Qt.Key_Backtab):
+            event.accept()
+            return
+        super().keyPressEvent(event)
 
     # def closeEvent(self, event):
     #

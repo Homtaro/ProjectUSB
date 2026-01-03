@@ -1,9 +1,12 @@
 """Core backend service for ProjectUSB."""
+import datetime
+from pathlib import Path
 
 import backend.modules.testingModule as testingModule
 import backend.modules.usbMonitoring as usbMonitoring
 import backend.modules.hwTests.keyboard.keyboardWindows as keyboardTest
 from backend.modules.hwTests.keyboard.keyboard_service import KeyboardTestWorker
+from backend.modules.scanCodeConvert import scancode_to_key
 
 
 class BackendService:
@@ -92,6 +95,27 @@ class BackendService:
             pid=pid,
             duration=duration
         )
+
+    def resolve_scancode(self, scancode: int) -> str:
+        return scancode_to_key(scancode)
+
+    @staticmethod
+    def get_journal_path(test_name: str, vid: int, pid: int):
+        from datetime import datetime
+        from pathlib import Path
+
+        root = Path.cwd() / "journal"
+        root.mkdir(exist_ok=True)
+
+        date = datetime.now().strftime("%Y-%m-%d_%H-%M-%S")
+        base = f"{test_name}[{vid:04X}_{pid:04X}]_{date}"
+
+        i = 1
+        while True:
+            path = root / f"{base}_{i}.json"
+            if not path.exists():
+                return path
+            i += 1
 
 
 #Remove Later
