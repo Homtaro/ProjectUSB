@@ -22,19 +22,20 @@ WNDPROC = ctypes.WINFUNCTYPE(
 
 # ================= GLOBAL STATE =================
 
-TARGET_VID = None
-TARGET_PID = None
-EVENT_CALLBACK = None
-RUNNING_CHECK = None
-
-SHUTTING_DOWN = False
-INPUT_ACTIVE = False
-
 pressed_keys = set()
 heatmap = defaultdict(int)
 max_keys = 0
 
-# KEEP CALLBACK ALIVE FOR PROCESS LIFETIME
+TARGET_VID = None
+TARGET_PID = None
+
+EVENT_CALLBACK = None
+RUNNING_CHECK = None
+
+SHUTTING_DOWN = False
+
+
+# Keep callback alive (VERY IMPORTANT)
 _proc_keepalive = None
 
 # ================= STRUCT DEFINITIONS =================
@@ -110,13 +111,7 @@ def wnd_proc(hwnd, msg, wparam, lparam):
     global max_keys
 
     if SHUTTING_DOWN:
-        return 0
-
-    if not INPUT_ACTIVE:
-        return 0
-
-    if msg != WM_INPUT:
-        return 0
+        return win32gui.DefWindowProc(hwnd, msg, wparam, lparam)
 
 
     if msg == WM_INPUT:
@@ -246,10 +241,7 @@ def unregister_keyboard(hwnd):
 # ================= TEST RUNNER =================
 
 def run_keyboard_test(vid, pid, duration=0, event_callback=None, running_flag=None):
-    global TARGET_VID, TARGET_PID
-    global EVENT_CALLBACK, RUNNING_CHECK
-    global INPUT_ACTIVE, SHUTTING_DOWN
-    global _proc_keepalive, max_keys
+    global TARGET_VID, TARGET_PID, EVENT_CALLBACK, RUNNING_CHECK, _proc_keepalive
 
     TARGET_VID = vid
     TARGET_PID = pid
@@ -260,12 +252,7 @@ def run_keyboard_test(vid, pid, duration=0, event_callback=None, running_flag=No
     heatmap.clear()
     max_keys = 0
 
-    INPUT_ACTIVE = True
-    SHUTTING_DOWN = False
-
-    # Create callback ONCE
-    if _proc_keepalive is None:
-        _proc_keepalive = WNDPROC(wnd_proc)
+    _proc_keepalive = WNDPROC(wnd_proc)
 
     wc = win32gui.WNDCLASS()
     wc.lpfnWndProc = _proc_keepalive
@@ -278,7 +265,7 @@ def run_keyboard_test(vid, pid, duration=0, event_callback=None, running_flag=No
         pass
 
     hwnd = win32gui.CreateWindowEx(
-        0, wc.lpszClassName, "HiddenRawInputKeyboardWindow",
+        0, wc.lpszClassName, "HiddenRawInputWindow",
         0, 0, 0, 0, 0,
         0, 0, wc.hInstance, None
     )
@@ -293,36 +280,23 @@ def run_keyboard_test(vid, pid, duration=0, event_callback=None, running_flag=No
             break
 
         win32gui.PumpWaitingMessages()
-        time.sleep(0.001)
+        time.sleep(0.01)
 
-    # ===== SAFE SHUTDOWN =====
-    INPUT_ACTIVE = False
-    SHUTTING_DOWN = True
+    # ---- SAFE SHUTDOWN SEQUENCE ----
     EVENT_CALLBACK = None
     RUNNING_CHECK = None
 
-    for _ in range(1000):
-        win32gui.PumpWaitingMessages()
-        time.sleep(0.001)
-
-    # STOP RAW INPUT FIRST
     unregister_keyboard(hwnd)
 
-    # QUIESCENCE WINDOW (MANDATORY)
-    end = time.time() + 3.5
-    while time.time() < end:
-        win32gui.PumpWaitingMessages()
-        time.sleep(0.001)
-
-    # NOW it is safe
-    win32gui.DestroyWindow(hwnd)
-
-    # final drain
+    # drain queue
     for _ in range(500):
         win32gui.PumpWaitingMessages()
-        time.sleep(0.001)
+        time.sleep(0.01)
 
-    SHUTTING_DOWN = False
+    win32gui.DestroyWindow(hwnd)
+
+    _proc_keepalive = None
+
 
     return {
         "duration_sec": duration,
@@ -330,7 +304,6 @@ def run_keyboard_test(vid, pid, duration=0, event_callback=None, running_flag=No
         "nkro_supported": max_keys >= 10,
         "heatmap": dict(heatmap),
     }
-
 
 
 # ================= MAIN =================

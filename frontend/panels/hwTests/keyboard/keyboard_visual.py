@@ -4,7 +4,6 @@ from PySide6.QtWidgets import (
 from PySide6.QtCore import Qt
 from PySide6.QtGui import QColor
 
-
 class KeyWidget(QLabel):
     def __init__(self, text: str, scancode: int):
         super().__init__(text)

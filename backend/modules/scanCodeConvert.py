@@ -44,7 +44,7 @@ SCANCODE_MAP = {
     0x19: "P",
     0x1A: "[ {",
     0x1B: "] }",
-    0x2B: "\ |",        # Backslash (above Enter on ANSI)
+    0x2B: "|",        # Backslash (above Enter on ANSI)
 
     # --- Row 4 (Caps & ASDF) ---
     0x3A: "Caps Lock",
@@ -58,7 +58,7 @@ SCANCODE_MAP = {
     0x25: "K",
     0x26: "L",
     0x27: "; :",
-    0x28: "' \"",        # Quote
+    0x28: "\\",        # Quote
     0x1C: "Enter",
 
     # --- Row 5 (Shift & ZXCV) ---
@@ -121,6 +121,14 @@ SCANCODE_MAP = {
     0x52: "Numpad 0",
     0x53: "Numpad ."
 }
+
+SCANCODE_MAP_MOUSE = {
+        0x0001: "left",
+        0x0004: "right",
+        0x0010: "middle",
+        0x0040: "x1",
+        0x0100: "x2",
+    }
 
 def scancode_to_key(scancode: int) -> str:
     return SCANCODE_MAP.get(scancode, f"Unknown (0x{scancode:X})")

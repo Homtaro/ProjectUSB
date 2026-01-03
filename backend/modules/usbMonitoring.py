@@ -35,7 +35,7 @@ def load_backend():
     BACKEND_DIR = os.path.dirname(CURRENT_DIR)
     dll_path = os.path.join(BACKEND_DIR, "dlls", "libusb-1.0.dll")
 
-    print("DLL PATH:", dll_path)
+    #print("DLL PATH:", dll_path)
 
     backend = get_backend(find_library=lambda name: dll_path)
 

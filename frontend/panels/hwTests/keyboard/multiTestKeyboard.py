@@ -3,8 +3,9 @@ from datetime import time
 from time import strftime
 
 from PySide6.QtCore import Qt, QThread, QEvent, Slot, QTimer
-from PySide6.QtWidgets import QPushButton, QHBoxLayout, QListWidget, QFrame, QVBoxLayout, QLabel, QFileDialog
+from PySide6.QtWidgets import QPushButton, QHBoxLayout, QListWidget, QFrame, QVBoxLayout, QLabel, QFileDialog, QDialog
 
+from frontend.dialogs.device_selection import DeviceSelectionDialog
 from frontend.panels.hwTests.base_window import BaseTestWindow
 from frontend.panels.hwTests.keyboard.keyboard_visual import KeyboardVisualPanel
 
@@ -22,6 +23,8 @@ class KeyboardMultiTestWindow(BaseTestWindow):
             parent=parent
         )
 
+        self.setVisible(False)
+
         self.setFixedSize(1320, 750)
         print(self.backend.get_status())
         print("KeyboardMultiTestWindow created", self)
@@ -30,6 +33,9 @@ class KeyboardMultiTestWindow(BaseTestWindow):
         self.worker = None
 
         self._final_result = None
+
+        self.selected_vid = None
+        self.selected_pid = None
 
 
         self.ui_timer = QTimer(self)
@@ -102,7 +108,6 @@ class KeyboardMultiTestWindow(BaseTestWindow):
 
         #self.layout().addLayout(bottom)
 
-        self.start_test()
         # Testing part ----
         self.setFocusPolicy(Qt.StrongFocus)
         self.setFocus()
@@ -127,6 +132,49 @@ class KeyboardMultiTestWindow(BaseTestWindow):
         self.history.setFocusPolicy(Qt.NoFocus)
         self.keyboard_panel.setFocusPolicy(Qt.NoFocus)
 
+        #Hide window until device is selected
+        # self.setVisible(False)
+        # self.hide()
+        # self.setHidden(True)
+
+
+
+
+    # ================= Backend Wiring =================
+
+        #self.start_test()
+
+        QTimer.singleShot(0, self.select_device_and_start)
+
+
+
+
+    # ================= Device Selection =================
+
+    def select_device_and_start(self):
+        devices = self.backend.get_hid_keyboards()
+
+        if not devices:
+            print("No HID keyboards found")
+            self.close()
+            return
+
+        dlg = DeviceSelectionDialog(devices, self)
+
+        if dlg.exec() != QDialog.Accepted:
+            print("Device selection cancelled")
+            self.close()
+            return
+
+        dev = devices[dlg.selected_device]
+
+        self.selected_vid = dev["vid"]
+        self.selected_pid = dev["pid"]
+
+        print("Device selected:", self.selected_vid, self.selected_pid)
+
+        self.show()
+        self.start_test()
 
     # ================= SIGNALS =================
 
@@ -142,11 +190,19 @@ class KeyboardMultiTestWindow(BaseTestWindow):
     #     scancode = event.nativeScanCode()
     #     self.keyboard_panel.key_down(scancode)
 
-    def start_test(self):
+    def start_test(self, vid=None, pid=None):
 
-        #TODO: Refactor later into a device selection dialog
-        VID = 0x258A
-        PID = 0x010C
+        # #TODO: Refactor later into a device selection dialog
+        # VID = 0x258A
+        # PID = 0x010C
+
+        if self.selected_vid is None or self.selected_pid is None:
+            print("start_test() called without device — aborting")
+            self.close()
+            return
+
+        VID = self.selected_vid
+        PID = self.selected_pid
 
         self.thread = QThread(self)
         self.worker = self.backend.create_keyboard_test(
@@ -228,6 +284,7 @@ class KeyboardMultiTestWindow(BaseTestWindow):
         self.btn_stop.setEnabled(False)
         self.worker.stop()
 
+
     def reset_test(self):
         if self.worker:
             return  # safety: should never happen if UI is correct
@@ -272,7 +329,6 @@ class KeyboardMultiTestWindow(BaseTestWindow):
         self.btn_stop.setEnabled(False)
         self.btn_reset.setEnabled(True)
 
-        # HARD rule: after this point, worker & thread are DEAD
         self.worker = None
         self.thread = None
 
@@ -287,6 +343,7 @@ class KeyboardMultiTestWindow(BaseTestWindow):
             event.accept()
             return
         super().keyPressEvent(event)
+
 
     # def closeEvent(self, event):
     #

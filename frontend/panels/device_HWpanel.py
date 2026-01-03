@@ -319,6 +319,7 @@ class HardwareTests(QWidget):
 
                 if key in self._open_windows:
                     w = self._open_windows[key]
+                    print(f"Opening existing window for {key}")
                     w.raise_()
                     w.activateWindow()
                     return
@@ -335,7 +336,14 @@ class HardwareTests(QWidget):
 
                 self._open_windows[key] = w
 
-                w.show()
+                # Check if key is ('Keyboard', 'Multitest')
+                # TODO: In the future change link from keyboardtestwindow to dialogwindow
+                # TODO: which will call keyboardtestwindow from itself
+                if key not in [("Keyboard", "Multitest"), ("Mouse", "Multitest")]:
+                    w.show()
+
+
+                #w.show()
                 w.raise_()
                 w.activateWindow()
 
