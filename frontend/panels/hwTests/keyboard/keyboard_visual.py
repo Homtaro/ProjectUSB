@@ -1,20 +1,24 @@
+import math
+
 from PySide6.QtWidgets import (
     QWidget, QGridLayout, QLabel, QSizePolicy
 )
 from PySide6.QtCore import Qt
 from PySide6.QtGui import QColor
 
+BASE_COLOR = QColor("#1e1e1e")
+HEAT_COLOR = QColor("#3aa675")
+
+
 class KeyWidget(QLabel):
     def __init__(self, text: str, scancode: int):
         super().__init__(text)
         self.scancode = scancode
-        self.press_count = 0
+        self.count = 0
+        self._pressed = False
 
         self.setMinimumSize(48, 48)
-        self.setSizePolicy(QSizePolicy.Expanding, QSizePolicy.Expanding)
-
         self.setAlignment(Qt.AlignCenter)
-        #self.setFixedSize(48, 48)
         self.setStyleSheet(self._base_style("#1e1e1e"))
 
     def _base_style(self, color: str):
@@ -28,22 +32,35 @@ class KeyWidget(QLabel):
         }}
         """
 
-    def key_down(self):
-        self.press_count += 1
-        self.setStyleSheet(self._base_style("#3daee9"))
+    def press(self):
+        self._pressed = True
+        self.setStyleSheet(self._base_style("#3daee9"))  # blue
 
-    def key_up(self):
-        self.setStyleSheet(self._base_style("#1e1e1e"))
+    def release(self):
+        self._pressed = False
+        # color will be restored by heatmap update
 
-    def set_heat(self, intensity: float):
-        # intensity: 0..1
-        red = int(255 * intensity)
-        color = QColor(red, 50, 50)
-        self.setStyleSheet(self._base_style(color.name()))
+    def hit(self):
+        self.count += 1
+
+    def apply_intensity(self, intensity: float):
+        if self._pressed:
+            return
+
+        intensity = max(0.0, min(1.0, intensity))
+
+        r = int(BASE_COLOR.red() + (HEAT_COLOR.red() - BASE_COLOR.red()) * intensity)
+        g = int(BASE_COLOR.green() + (HEAT_COLOR.green() - BASE_COLOR.green()) * intensity)
+        b = int(BASE_COLOR.blue() + (HEAT_COLOR.blue() - BASE_COLOR.blue()) * intensity)
+
+        self.setStyleSheet(self._base_style(QColor(r, g, b).name()))
 
     def reset(self):
-        self.press_count = 0
+        self.count = 0
+        self._pressed = False
         self.setStyleSheet(self._base_style("#1e1e1e"))
+
+
 
 class KeyboardVisualPanel(QWidget):
     def __init__(self, parent=None):
@@ -235,18 +252,41 @@ class KeyboardVisualPanel(QWidget):
         self.keys[0xE01C] = layout.itemAtPosition(4, 24).widget()
         self.keys[0x4E] = layout.itemAtPosition(2, 24).widget()
 
+    def update_heatmap(self):
+        if not self.keys:
+            return
+
+        counts = [k.count for k in self.keys.values() if k.count > 0]
+        if not counts:
+            return
+
+        counts.sort()
+
+        p90_index = int(len(counts) * 0.9)
+        ref_count = counts[min(p90_index, len(counts) - 1)]
+
+        ref_count = max(ref_count, 1)
+
+        for key in self.keys.values():
+            if key.count == 0:
+                continue
+
+            intensity = math.log(key.count + 1) / math.log(ref_count + 1)
+            intensity = min(intensity, 1.0)
+
+            key.apply_intensity(intensity)
 
     # === API exposed to tests ===
 
     def key_down(self, scancode: int):
         key = self.keys.get(scancode)
         if key:
-            key.key_down()
+            key.press()
 
     def key_up(self, scancode: int):
         key = self.keys.get(scancode)
         if key:
-            key.key_up()
+            key.release()
 
     def reset(self):
         for key in self.keys.values():

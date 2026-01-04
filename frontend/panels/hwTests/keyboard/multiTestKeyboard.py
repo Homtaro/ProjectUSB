@@ -258,6 +258,7 @@ class KeyboardMultiTestWindow(BaseTestWindow):
         for event_type, scancode in self.worker.pop_events(100):
             if event_type == "down":
                 self.keyboard_panel.key_down(scancode)
+                self.keyboard_panel.keys[scancode].hit()
                 self.add_history(scancode, True)
             else:
                 self.keyboard_panel.key_up(scancode)
@@ -267,6 +268,7 @@ class KeyboardMultiTestWindow(BaseTestWindow):
         stats = self.worker.get_stats()
         if stats:
             self.update_stats(stats)
+        self.keyboard_panel.update_heatmap()
 
     def add_history(self, scancode, is_down):
         ts = strftime("%H:%M:%S")
@@ -291,6 +293,7 @@ class KeyboardMultiTestWindow(BaseTestWindow):
 
         self.history.clear()
         self.keyboard_panel.reset()
+
 
         self.lbl_pressed.setText("0")
         self.lbl_max.setText("0")
