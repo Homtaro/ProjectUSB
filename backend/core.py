@@ -5,6 +5,9 @@ from pathlib import Path
 import backend.modules.testingModule as testingModule
 import backend.modules.usbMonitoring as usbMonitoring
 import backend.modules.hwTests.keyboard.keyboardWindows as keyboardTest
+from backend.modules.hwTests.gamepad.gamepadWMI import get_controller_real_vidpid
+from backend.modules.hwTests.gamepad.gamepadXIsolated import detect_active_controllers
+from backend.modules.hwTests.gamepad.gamepadX_Service import GamepadTestWorker
 from backend.modules.hwTests.keyboard.keyboard_service import KeyboardTestWorker
 from backend.modules.hwTests.mouse.mouse_service import MouseTestWorker
 from backend.modules.scanCodeConvert import scancode_to_key
@@ -109,6 +112,31 @@ class BackendService:
             vid=vid,
             pid=pid,
             duration=duration
+        )
+
+    # def create_gamepad_test(self, controller_index: int | None = None) -> GamepadTestWorker:
+    #     """
+    #     Create XInput gamepad test worker.
+    #     UI owns the thread lifecycle.
+    #     """
+    #     return GamepadTestWorker(
+    #         controller_index=controller_index
+    #     )
+
+    def create_gamepad_test(self, controller_index: int | None = None) -> GamepadTestWorker:
+        # Resolve controller index FIRST (main thread)
+        if controller_index is None:
+            active = detect_active_controllers()
+            if not active:
+                raise RuntimeError("No XInput controllers detected")
+            controller_index = active[0]
+
+        #WMI CALL
+        device_info = get_controller_real_vidpid(controller_index) or {}
+
+        return GamepadTestWorker(
+            controller_index=controller_index,
+            device_info=device_info,  # injected
         )
 
 

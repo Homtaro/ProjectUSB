@@ -20,7 +20,21 @@ def decode_vendor(vid):
 
 
 def decode_device(vid, pid):
+    #print("vid:", vid, "pid:", pid)
     key = f"0x{vid:04x}:0x{pid:04x}"
+    return devices_map.get(key, "Unknown Device")
+
+
+def decode_device_alternative(vid, pid):
+
+    if isinstance(vid, str):
+        vid = int(vid, 16)
+
+    if isinstance(pid, str):
+        pid = int(pid, 16)
+
+    key = f"0x{vid:04x}:0x{pid:04x}"
+
     return devices_map.get(key, "Unknown Device")
 
 

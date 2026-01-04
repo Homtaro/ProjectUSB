@@ -63,28 +63,6 @@ class XINPUT_STATE(ctypes.Structure):
     ]
 
 
-
-class XINPUT_CAPABILITIES(ctypes.Structure):
-    _fields_ = [
-        ("Type", ctypes.c_ubyte),
-        ("SubType", ctypes.c_ubyte),
-        ("Flags", ctypes.c_ushort),
-        ("Gamepad", XINPUT_GAMEPAD),
-        ("Vibration", ctypes.c_ubyte * 8),  # XINPUT_VIBRATION placeholder
-    ]
-
-
-class XINPUT_CAPABILITIES_EX(ctypes.Structure):
-    _fields_ = [
-        ("Capabilities", XINPUT_CAPABILITIES),
-        ("vendorId", ctypes.c_ushort),
-        ("productId", ctypes.c_ushort),
-        ("revisionId", ctypes.c_ushort),
-        ("a4", ctypes.c_ulong),  # unknown field
-    ]
-
-
-
 # ================= XINPUT LOAD =================
 
 _xinput = None
@@ -101,26 +79,6 @@ if not _xinput:
 _xinput.XInputGetState.argtypes = [ctypes.c_uint, ctypes.POINTER(XINPUT_STATE)]
 _xinput.XInputGetState.restype = ctypes.c_uint
 
-try:
-    # Get the undocumented function by ordinal 108
-    _xinput_get_caps_ex = _xinput[108]
-    _xinput_get_caps_ex.argtypes = [
-        ctypes.c_uint,  # a1 (always 1)
-        ctypes.c_uint,  # dwUserIndex
-        ctypes.c_uint,  # dwFlags
-        ctypes.POINTER(XINPUT_CAPABILITIES_EX)
-    ]
-    _xinput_get_caps_ex.restype = ctypes.c_uint
-    HAS_CAPS_EX = True
-except (AttributeError, OSError):
-    HAS_CAPS_EX = False
-    print("Warning: XInputGetCapabilitiesEx not available")
-
-
-
-
-
-
 # ================= HELPERS =================
 
 def normalize_axis(v):
@@ -129,50 +87,6 @@ def normalize_axis(v):
 
 def magnitude(x, y):
     return math.sqrt(x * x + y * y)
-
-
-def get_controller_info(controller_index):
-    """
-    Get VID/PID for a controller using undocumented XInputGetCapabilitiesEx.
-    Returns dict with vid, pid, or None if not available/connected.
-    """
-    if not HAS_CAPS_EX:
-        return None
-
-    caps_ex = XINPUT_CAPABILITIES_EX()
-    res = _xinput_get_caps_ex(1, controller_index, 0, ctypes.byref(caps_ex))
-
-    if res == ERROR_SUCCESS:
-        return {
-            "vid": f"0x{caps_ex.vendorId:04X}",
-            "pid": f"0x{caps_ex.productId:04X}",
-            "revision": f"0x{caps_ex.revisionId:04X}",
-            "type": caps_ex.Capabilities.Type,
-            "subtype": caps_ex.Capabilities.SubType,
-        }
-    return None
-
-
-def detect_active_controllers_with_info():
-    """
-    Detect all connected controllers and return their info including VID/PID.
-    """
-    controllers = []
-    state = XINPUT_STATE()
-
-    for idx in range(4):
-        res = _xinput.XInputGetState(idx, ctypes.byref(state))
-        if res == ERROR_SUCCESS:
-            info = get_controller_info(idx) or {}
-            controllers.append({
-                "index": idx,
-                **info
-            })
-
-    return controllers
-
-
-
 
 
 # ================= TEST RUNNER =================
@@ -320,56 +234,6 @@ def select_controller(timeout=10):
     raise TimeoutError("No controller selected")
 
 
-def read_xinput_state(controller_index: int):
-    state = XINPUT_STATE()
-    res = _xinput.XInputGetState(controller_index, ctypes.byref(state))
-    if res != ERROR_SUCCESS:
-        return None
-
-    gp = state.Gamepad
-
-    NAME_REMAP = {
-        "LEFT_SHOULDER": "LB",
-        "RIGHT_SHOULDER": "RB",
-        "LEFT_STICK": "LS",
-        "RIGHT_STICK": "RS",
-        "DPAD_UP": "DPAD_UP",
-        "DPAD_DOWN": "DPAD_DOWN",
-        "DPAD_LEFT": "DPAD_LEFT",
-        "DPAD_RIGHT": "DPAD_RIGHT",
-        "START": "START",
-        "BACK": "BACK",
-        "A": "A",
-        "B": "B",
-        "X": "X",
-        "Y": "Y",
-    }
-
-    buttons = {}
-    for mask, name in BUTTON_MAP.items():
-        raw = name.upper()
-        ui_name = NAME_REMAP.get(raw)
-        if ui_name:
-            buttons[ui_name] = 1.0 if (gp.wButtons & mask) else 0.0
-
-    return {
-        "packet": state.dwPacketNumber,
-        "buttons": buttons,
-        "triggers": {
-            "LT": gp.bLeftTrigger / 255.0,
-            "RT": gp.bRightTrigger / 255.0,
-        },
-        "sticks": {
-            "L": (
-                normalize_axis(gp.sThumbLX),
-                normalize_axis(gp.sThumbLY),
-            ),
-            "R": (
-                normalize_axis(gp.sThumbRX),
-                normalize_axis(gp.sThumbRY),
-            ),
-        },
-    }
 
 
 
