@@ -5,6 +5,7 @@ from datetime import datetime
 
 from PySide6.QtCore import QObject, Signal
 import backend.modules.hwTests.mouse.mouseIsolated as rawmouse
+from backend.modules.usbDecoder import decode_device_alternative
 
 
 class MouseTestWorker(QObject):
@@ -173,6 +174,7 @@ class MouseTestWorker(QObject):
             "device": {
                 "vid": self.vid,
                 "pid": self.pid,
+                "decoded_name": decode_device_alternative(self.vid, self.pid,),
             },
 
             "config": {

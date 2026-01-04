@@ -6,6 +6,7 @@ from PySide6.QtCore import QObject, Signal, QThread
 import backend.modules.hwTests.keyboard.keyboardWindows as rawkbd
 from time import strftime
 
+from backend.modules.usbDecoder import decode_device_alternative
 
 
 class KeyboardTestWorker(QObject):
@@ -60,6 +61,7 @@ class KeyboardTestWorker(QObject):
             "device": {
                 "vid": self.vid,
                 "pid": self.pid,
+                "decoded_name": decode_device_alternative(self.vid, self.pid,),
             },
             "stats": {
                 "total_presses": self.total_presses,
@@ -79,6 +81,7 @@ class KeyboardTestWorker(QObject):
                 events.append(self.event_buffer.popleft())
         return events
 
+
     def get_stats(self):
         return {
             "pressed_now": len(self.pressed_keys),
@@ -88,3 +91,5 @@ class KeyboardTestWorker(QObject):
             "nkro": self.max_keys >= 10,
         }
 
+    def get_heatmap(self):
+        return dict(self.heatmap)
