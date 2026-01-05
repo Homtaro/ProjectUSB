@@ -12,4 +12,4 @@ TEXT_PRIMARY   = "#ffffff"
 TEXT_SECONDARY = "#b0b0b0"
 TEXT_MUTED     = "#9a9a9a"
 
-ACCENT         = "#0078D7"   # Windows blue
+ACCENT         = "#3aa675"   # Windows green

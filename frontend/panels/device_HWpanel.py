@@ -16,7 +16,7 @@ from frontend.panels.hwTests.storage.singleFileTest import SingleFileStorageTest
 from frontend.panels.hwTests.storage.multiFileTest import MultiFileStorageTestWindow
 
 
-ACCENT_COLOR = "#0078d7"
+ACCENT_COLOR = "#3aa675"
 
 
 # -----------------------------

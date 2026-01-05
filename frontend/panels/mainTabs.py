@@ -13,19 +13,26 @@ class MainPanel(QWidget):
         layout = QVBoxLayout(self)
         layout.setContentsMargins(0, 0, 0, 0)
 
-        tabs = QTabWidget()
-        tabs.setTabPosition(QTabWidget.North)
+        self.tabs = QTabWidget()
+        self.tabs.setTabPosition(QTabWidget.North)
 
         self.device_panel = DevicePanel(backend)
         self.hw_test = HardwareTests(backend)
         self.journal_panel = JournalPanel(backend)
 
-        tabs.addTab(self.device_panel, "Devices")
-        tabs.addTab(self.hw_test, "Hardware Tests")
-        tabs.addTab(self.journal_panel, "Test Journal")
+        self.tabs.addTab(self.device_panel, "Devices")
+        self.tabs.addTab(self.hw_test, "Hardware Tests")
+        self.tabs.addTab(self.journal_panel, "Test Journal")
         #tabs.addTab(WindowsSettingsMenu(), "Demo") #Placeholder
 
-        layout.addWidget(tabs)
+        self.tabs.currentChanged.connect(self.on_tab_changed)
+
+        layout.addWidget(self.tabs)
+
+    def on_tab_changed(self, index):
+        widget = self.tabs.widget(index)
+        if widget is self.journal_panel:
+            self.journal_panel.refresh()
 
 
 
