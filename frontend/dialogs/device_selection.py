@@ -6,7 +6,7 @@ from PySide6.QtWidgets import (
 class DeviceSelectionDialog(QDialog):
     def __init__(self, devices: list[dict], parent=None):
         super().__init__(parent)
-        self.setWindowTitle("Select keyboard to test")
+        self.setWindowTitle("Select device")
         self.setModal(True)
         self.resize(450, 300)
 
@@ -14,7 +14,7 @@ class DeviceSelectionDialog(QDialog):
 
         layout = QVBoxLayout(self)
 
-        label = QLabel("Select keyboard device:")
+        label = QLabel("Select device:")
         layout.addWidget(label)
 
         self.list = QListWidget()

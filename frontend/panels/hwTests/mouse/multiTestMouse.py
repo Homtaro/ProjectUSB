@@ -1,4 +1,5 @@
 # frontend/panels/hwTests/mouse/multiTestMouse.py
+
 import json
 import time
 
@@ -13,6 +14,9 @@ from frontend.dialogs.device_selection import DeviceSelectionDialog
 from frontend.graphs.base_graph import TimeSeriesGraph
 from frontend.panels.hwTests.base_window import BaseTestWindow
 from frontend.panels.hwTests.mouse.mouse_visual import MouseVisualPanel
+
+#Raw Input controller (MAIN THREAD ONLY)
+#from backend.modules.hwTests.mouse import mouseIsolated as rawmouse
 
 
 class MouseMultiTestWindow(BaseTestWindow):
@@ -82,7 +86,9 @@ class MouseMultiTestWindow(BaseTestWindow):
         right = QVBoxLayout()
 
         self.lbl_timer = QLabel("Time left: —")
-        self.lbl_timer.setStyleSheet("color: #e0e0e0; font-size: 14px; font-weight: bold;")
+        self.lbl_timer.setStyleSheet(
+            "color: #e0e0e0; font-size: 14px; font-weight: bold;"
+        )
 
         self.progress = QProgressBar()
         self.progress.setRange(0, 100)
@@ -94,29 +100,14 @@ class MouseMultiTestWindow(BaseTestWindow):
         for lbl in (self.lbl_polling, self.lbl_jitter):
             lbl.setStyleSheet("color: #e0e0e0; font-size: 14px;")
 
-        # chart_placeholder = QLabel("📈 Charts will appear here")
-        # chart_placeholder.setAlignment(Qt.AlignCenter)
-        # chart_placeholder.setStyleSheet("""
-        #     QLabel {
-        #         border: 2px dashed #333;
-        #         border-radius: 8px;
-        #         color: #888;
-        #         padding: 40px;
-        #     }
-        # """)
-
         self.polling_graph = TimeSeriesGraph("Polling Rate", "Hz")
         self.jitter_graph = TimeSeriesGraph("Jitter", "ms")
-
-        #self.polling_graph.setFixedSize(400, 200)
-        #self.jitter_graph.setFixedSize(400, 200)
 
         right.addWidget(self.lbl_timer)
         right.addWidget(self.progress)
         right.addSpacing(8)
-        right.addWidget(self.polling_graph,1)
-        right.addWidget(self.jitter_graph,1)
-        #right.addWidget(chart_placeholder, 1)
+        right.addWidget(self.polling_graph, 1)
+        right.addWidget(self.jitter_graph, 1)
 
         top.addLayout(right, 1)
 
@@ -177,6 +168,14 @@ class MouseMultiTestWindow(BaseTestWindow):
 
         self.show()
 
+    # ================= RAW INPUT BRIDGE =================
+    # MAIN THREAD → WORKER
+
+    def on_raw_input_event(self, event_type, *data):
+        if not self.worker:
+            return
+        self.worker.handle_event(event_type, *data)
+
     # ================= TEST START =================
 
     def _on_start_clicked(self):
@@ -201,16 +200,15 @@ class MouseMultiTestWindow(BaseTestWindow):
         if self.selected_vid is None or self.selected_pid is None:
             return
 
+        # --- worker thread (DATA ONLY) ---
         self.thread = QThread(self)
         self.worker = self.backend.create_mouse_test(
             vid=self.selected_vid,
             pid=self.selected_pid,
             duration=self.test_duration
         )
-
         self.worker.moveToThread(self.thread)
 
-        self.thread.started.connect(self.worker.run)
         self.worker.finished.connect(self.on_test_finished)
         self.worker.finished.connect(self.thread.quit)
 
@@ -218,6 +216,29 @@ class MouseMultiTestWindow(BaseTestWindow):
         self.thread.finished.connect(self.thread.deleteLater)
 
         self.thread.start()
+
+        # --- RAW INPUT (MAIN THREAD) ---
+        # rawmouse.start_capture(
+        #     vid=self.selected_vid,
+        #     pid=self.selected_pid,
+        #     event_callback=self.on_raw_input_event,
+        #     running_check=lambda: self.worker and self.worker._running
+        # )
+
+        self.backend.start_mouse_capture(
+            vid=self.selected_vid,
+            pid=self.selected_pid,
+            event_callback=self.on_raw_input_event,
+            running_check=lambda: self.worker and self.worker._running,
+        )
+
+        QTimer.singleShot(self.test_duration * 1000, self.stop_test)
+
+    def stop_test(self):
+        #rawmouse.stop_capture()
+        self.backend.stop_mouse_capture()
+        if self.worker:
+            self.worker.finalize()
 
     # ================= UI UPDATE =================
 
@@ -252,12 +273,6 @@ class MouseMultiTestWindow(BaseTestWindow):
                 self.mouse_panel.button_hit(f"wheel_{direction}")
                 self.log_event(f"WHEEL {direction}")
 
-            elif etype == "start":
-                self.log_event("▶ Capture started")
-
-            elif etype == "end":
-                self.log_event("■ Capture finished")
-
     # ================= FINISH =================
 
     def on_test_finished(self, result):
@@ -268,7 +283,7 @@ class MouseMultiTestWindow(BaseTestWindow):
 
         self.update_stats(
             stats["polling_rate_hz"],
-            stats["avg_jitter_ms"]
+            stats.get("avg_jitter_ms", 0)
         )
 
         self.polling_graph.set_data(graphs.get("polling_rate", []))
@@ -288,6 +303,8 @@ class MouseMultiTestWindow(BaseTestWindow):
 
     def event(self, e):
         if e.type() == QEvent.Close:
+            #rawmouse.stop_capture()
+            self.backend.stop_mouse_capture()
             if self.worker:
                 self.worker.stop()
             if self.thread:
@@ -330,4 +347,3 @@ class MouseMultiTestWindow(BaseTestWindow):
             json.dump(self._final_result, f, indent=2)
 
         self.log_event(f"Saved to {path.name}")
-

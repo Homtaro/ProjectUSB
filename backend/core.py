@@ -155,7 +155,29 @@ class BackendService:
     def create_audio_output_test(self, device_index: int):
         return AudioOutputTestWorker(device_index)
 
+    def start_mouse_capture(self, vid, pid, event_callback, running_check):
+        from backend.modules.hwTests.mouse import mouseIsolated
+        mouseIsolated.start_capture(
+            vid=vid,
+            pid=pid,
+            event_callback=event_callback,
+            running_check=running_check,
+        )
 
+    def stop_mouse_capture(self):
+        from backend.modules.hwTests.mouse import mouseIsolated
+        mouseIsolated.stop_capture()
+
+    def start_keyboard_capture(self, vid, pid, event_callback, running_check):
+        keyboardTest.start_capture(
+            vid=vid,
+            pid=pid,
+            event_callback=event_callback,
+            running_check=running_check,
+        )
+
+    def stop_keyboard_capture(self):
+        keyboardTest.stop_capture()
 
 
 

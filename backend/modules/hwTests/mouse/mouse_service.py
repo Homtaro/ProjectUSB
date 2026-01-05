@@ -1,10 +1,8 @@
-
 from collections import defaultdict, deque
 from threading import Lock
 from datetime import datetime
 
 from PySide6.QtCore import QObject, Signal
-import backend.modules.hwTests.mouse.mouseIsolated as rawmouse
 from backend.modules.usbDecoder import decode_device_alternative
 
 
@@ -19,7 +17,6 @@ class MouseTestWorker(QObject):
         self.duration = duration
         self._running = True
 
-        # --- runtime buffers ---
         self.packet_times: list[float] = []
         self.button_heatmap = defaultdict(int)
 
@@ -29,14 +26,27 @@ class MouseTestWorker(QObject):
     def stop(self):
         self._running = False
 
+    def handle_event(self, event_type, *data):
+        if not self._running:
+            return
+
+        with self.lock:
+            self.event_buffer.append((event_type, *data))
+
+        if event_type == "packet":
+            self.packet_times.append(data[0])
+
+        elif event_type == "button":
+            self.button_heatmap[data[0]] += 1
+
+        elif event_type == "wheel":
+            self.button_heatmap[f"wheel_{data[0]}"] += 1
+
     # =========================
     # TRUE POLLING RATE SERIES
     # =========================
+
     def _compute_polling_series(self, window_ms=100):
-        """
-        Buckets packet timestamps into fixed windows.
-        Output: [(t_sec, hz), ...]
-        """
         times = self.packet_times
         if len(times) < 2:
             return []
@@ -56,10 +66,10 @@ class MouseTestWorker(QObject):
                 count += 1
                 i += 1
 
-            hz = count / window
-            series.append(
-                (round(bucket_start - start_time, 3), round(hz, 2))
-            )
+            series.append((
+                round(bucket_start - start_time, 3),
+                round(count / window, 2)
+            ))
 
             bucket_start = bucket_end
 
@@ -68,35 +78,25 @@ class MouseTestWorker(QObject):
     # =========================
     # TRUE POLLING JITTER SERIES
     # =========================
+
     def _compute_jitter_series(self, bucket_ms=50):
-        """
-        Computes true polling jitter:
-        jitter = |actual_interval - expected_interval|
-        Then buckets jitter into time windows to reduce JSON size.
-        """
         times = self.packet_times
         if len(times) < 3:
             return []
 
-        # raw packet intervals
         intervals = [
             times[i] - times[i - 1]
             for i in range(1, len(times))
         ]
 
-        # expected interval = median (robust)
         expected = sorted(intervals)[len(intervals) // 2]
 
-        # compute raw jitter samples
         jitter_samples = [
-            abs(dt - expected) * 1000.0  # ms
+            abs(dt - expected) * 1000.0
             for dt in intervals
         ]
 
-        # timestamps for jitter samples
         jitter_times = times[1:]
-
-        # bucket + average
         bucket = bucket_ms / 1000.0
         start = jitter_times[0]
 
@@ -123,35 +123,14 @@ class MouseTestWorker(QObject):
 
         return out
 
-    # =========================
-    # MAIN TEST RUN
-    # =========================
-    def run(self):
-        def on_event(event_type, *data):
-            if not self._running:
-                return
+    def pop_events(self, limit=100):
+        events = []
+        with self.lock:
+            for _ in range(min(limit, len(self.event_buffer))):
+                events.append(self.event_buffer.popleft())
+        return events
 
-            with self.lock:
-                self.event_buffer.append((event_type, *data))
-
-            if event_type == "packet":
-                self.packet_times.append(data[0])
-
-            elif event_type == "button":
-                self.button_heatmap[data[0]] += 1
-
-            elif event_type == "wheel":
-                self.button_heatmap[f"wheel_{data[0]}"] += 1
-
-        rawmouse.run_mouse_test(
-            self.vid,
-            self.pid,
-            duration=self.duration,
-            event_callback=on_event,
-            running_flag=lambda: self._running
-        )
-
-        # --- summary stats ---
+    def finalize(self):
         polling_rate = 0
         if len(self.packet_times) > 1:
             intervals = [
@@ -174,7 +153,7 @@ class MouseTestWorker(QObject):
             "device": {
                 "vid": self.vid,
                 "pid": self.pid,
-                "decoded_name": decode_device_alternative(self.vid, self.pid,),
+                "decoded_name": decode_device_alternative(self.vid, self.pid),
             },
 
             "config": {
@@ -198,10 +177,3 @@ class MouseTestWorker(QObject):
         }
 
         self.finished.emit(result)
-
-    def pop_events(self, limit=100):
-        events = []
-        with self.lock:
-            for _ in range(min(limit, len(self.event_buffer))):
-                events.append(self.event_buffer.popleft())
-        return events
