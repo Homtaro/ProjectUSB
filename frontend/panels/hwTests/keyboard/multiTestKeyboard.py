@@ -41,7 +41,7 @@ class KeyboardMultiTestWindow(BaseTestWindow):
         # ================= UI =================
 
         self.keyboard_panel = KeyboardVisualPanel(self)
-        self.keyboard_panel.setFocusPolicy(Qt.NoFocus)
+       # self.keyboard_panel.setFocusPolicy(Qt.NoFocus)
 
         bottom = QHBoxLayout()
 
@@ -79,6 +79,11 @@ class KeyboardMultiTestWindow(BaseTestWindow):
         self.btn_reset = QPushButton("Reset")
         self.btn_save = QPushButton("Save")
 
+        self.btn_reset.setFocusPolicy(Qt.NoFocus)
+        self.btn_stop.setFocusPolicy(Qt.NoFocus)
+        self.btn_save.setFocusPolicy(Qt.NoFocus)
+
+
         self.setStyleSheet("""
             QPushButton { padding: 6px; }
             QPushButton:disabled {
@@ -110,6 +115,7 @@ class KeyboardMultiTestWindow(BaseTestWindow):
         self.btn_save.clicked.connect(lambda: self.save_results(self._final_result))
         self.btn_save.setEnabled(False)
         self.btn_reset.setEnabled(False)
+
 
         QTimer.singleShot(0, self.select_device_and_start)
 
