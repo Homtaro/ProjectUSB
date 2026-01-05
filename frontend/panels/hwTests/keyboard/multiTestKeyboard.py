@@ -99,6 +99,20 @@ class KeyboardMultiTestWindow(BaseTestWindow):
         self.btn_reset = QPushButton("Reset")
         self.btn_save = QPushButton("Save")
 
+        self.setStyleSheet("""
+                QPushButton {
+                    padding: 6px;
+                }
+                QPushButton:disabled {
+                    border: 2px solid #a33;
+                    color: #777;
+                    background-color: #1a1a1a;
+                }
+                """)
+
+
+
+
         right.addWidget(self.btn_stop)
         right.addWidget(self.btn_reset)
         right.addWidget(self.btn_save)
@@ -125,6 +139,7 @@ class KeyboardMultiTestWindow(BaseTestWindow):
         self.btn_reset.clicked.connect(self.reset_test)
         self.btn_save.clicked.connect(lambda: self.save_results(self._final_result))
         self.btn_save.setEnabled(False)
+        self.btn_reset.setEnabled(False)
 
         self.btn_stop.setFocusPolicy(Qt.NoFocus)
         self.btn_reset.setFocusPolicy(Qt.NoFocus)
@@ -286,14 +301,13 @@ class KeyboardMultiTestWindow(BaseTestWindow):
         self.btn_stop.setEnabled(False)
         self.worker.stop()
 
-
     def reset_test(self):
+
         if self.worker:
-            return  # safety: should never happen if UI is correct
+            return
 
         self.history.clear()
         self.keyboard_panel.reset()
-
 
         self.lbl_pressed.setText("0")
         self.lbl_max.setText("0")
@@ -301,8 +315,11 @@ class KeyboardMultiTestWindow(BaseTestWindow):
         self.lbl_total.setText("0")
         self.lbl_nkro.setText("NO")
 
+
         self.btn_save.setEnabled(False)
         self.btn_stop.setEnabled(True)
+        self.btn_reset.setEnabled(False)
+
         self.start_test()
 
     def save_results(self, result):

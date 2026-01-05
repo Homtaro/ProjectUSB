@@ -314,12 +314,16 @@ def run_keyboard_test(vid, pid, duration=0, event_callback=None, running_flag=No
         EVENT_CALLBACK = None
         RUNNING_CHECK = None
 
-        end = time.time() + 0.5
+        end = time.time() + 2.5
         while time.time() < end:
             win32gui.PumpWaitingMessages()
             time.sleep(0.001)
 
         SHUTTING_DOWN = True
+
+        for _ in range(1000):
+            win32gui.PumpWaitingMessages()
+            time.sleep(0.001)
 
         unregister_keyboard()
         time.sleep(0.05)
@@ -334,7 +338,7 @@ def run_keyboard_test(vid, pid, duration=0, event_callback=None, running_flag=No
         except Exception as e:
             print(f"Warning: UnregisterClass failed: {e}")
 
-        for _ in range(100):
+        for _ in range(1000):
             win32gui.PumpWaitingMessages()
             time.sleep(0.001)
 

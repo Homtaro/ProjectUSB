@@ -343,7 +343,7 @@ def run_mouse_test(vid, pid, duration=0, event_callback=None, running_flag=None)
 
         SHUTTING_DOWN = True
 
-        for _ in range(1000):
+        for _ in range(3000):
             win32gui.PumpWaitingMessages()
             time.sleep(0.001)
 

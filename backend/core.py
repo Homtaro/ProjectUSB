@@ -5,11 +5,15 @@ from pathlib import Path
 import backend.modules.testingModule as testingModule
 import backend.modules.usbMonitoring as usbMonitoring
 import backend.modules.hwTests.keyboard.keyboardWindows as keyboardTest
+from backend.modules.hwTests.audio.audioIn_service import AudioInputTestWorker
+from backend.modules.hwTests.audio.audioOut_service import AudioOutputTestWorker
 from backend.modules.hwTests.gamepad.gamepadWMI import get_controller_real_vidpid
 from backend.modules.hwTests.gamepad.gamepadXIsolated import detect_active_controllers
 from backend.modules.hwTests.gamepad.gamepadX_Service import GamepadTestWorker
 from backend.modules.hwTests.keyboard.keyboard_service import KeyboardTestWorker
 from backend.modules.hwTests.mouse.mouse_service import MouseTestWorker
+from backend.modules.hwTests.storage.storage_service import list_storage_paths, SingleFileStorageTestWorker, \
+    MultiFileStorageTestWorker
 from backend.modules.scanCodeConvert import scancode_to_key
 
 
@@ -139,6 +143,20 @@ class BackendService:
             device_info=device_info,  # injected
         )
 
+    def list_audio_input_devices(self):
+        return AudioInputTestWorker.list_devices()
+
+    def list_audio_output_devices(self):
+        return AudioOutputTestWorker.list_devices()
+
+    def create_audio_input_test(self, device_index: int):
+        return AudioInputTestWorker(device_index)
+
+    def create_audio_output_test(self, device_index: int):
+        return AudioOutputTestWorker(device_index)
+
+
+
 
 
     def get_hid_keyboards(self) -> list[dict]:
@@ -195,8 +213,51 @@ class BackendService:
 
         return mice
 
+    def list_storage_devices(self):
+        return list_storage_paths()
+
+    def create_single_file_storage_test(self, path: str):
+        return SingleFileStorageTestWorker(path)
+
+    def create_multi_file_storage_test(self, path: str):
+        return MultiFileStorageTestWorker(path)
+
     def resolve_scancode(self, scancode: int) -> str:
         return scancode_to_key(scancode)
+
+    @staticmethod
+    def get_journal_path_device(test_name: str, device: dict):
+        from datetime import datetime
+        from pathlib import Path
+
+        root = Path.cwd() / "journal"
+        root.mkdir(exist_ok=True)
+
+        date = datetime.now().strftime("%Y-%m-%d_%H-%M-%S")
+
+        # ---- device tag resolution ----
+        if device.get("vid") and device.get("pid"):
+            dev_tag = f"{device['vid']:04X}_{device['pid']:04X}"
+
+        elif device.get("model"):
+            dev_tag = device["model"]
+
+        elif device.get("name"):
+            dev_tag = device["name"]
+
+        else:
+            dev_tag = "UNKNOWN_DEVICE"
+
+        dev_tag = dev_tag.replace(" ", "_")[:32]
+
+        base = f"{test_name}[{dev_tag}]_{date}"
+
+        i = 1
+        while True:
+            path = root / f"{base}_{i}.json"
+            if not path.exists():
+                return path
+            i += 1
 
     @staticmethod
     def get_journal_path(test_name: str, vid: int, pid: int):
