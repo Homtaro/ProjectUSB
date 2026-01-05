@@ -83,6 +83,8 @@ class RAWINPUTDEVICE(ctypes.Structure):
 
 
 def device_matches_target(h_device):
+    h_device = wintypes.HANDLE(h_device)  # <<< THIS IS THE FIX
+
     size = wintypes.UINT(0)
     if ctypes.windll.user32.GetRawInputDeviceInfoW(
         h_device, RIDI_DEVICENAME, None, ctypes.byref(size)

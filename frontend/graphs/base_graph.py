@@ -26,14 +26,17 @@ class TimeSeriesGraph(QWidget):
         p.setPen(QColor("#aaa"))
         p.drawText(12, 14, f"{self.title} ({self.unit})")
 
-        if not self.data:
+        if not self.data or len(self.data) < 2:
             return
 
         xs = [x for x, _ in self.data]
         ys = [y for _, y in self.data]
 
         max_x = max(xs)
-        max_y = max(ys) or 1
+        max_y = max(ys)
+
+        if max_x <= 0 or max_y <= 0:
+            return
 
         pen = QPen(QColor("#3a8"), 2)
         p.setPen(pen)
@@ -43,6 +46,6 @@ class TimeSeriesGraph(QWidget):
             px = rect.left() + (x / max_x) * rect.width()
             py = rect.bottom() - (y / max_y) * rect.height()
 
-            if prev:
+            if prev is not None:
                 p.drawLine(prev[0], prev[1], px, py)
             prev = (px, py)
