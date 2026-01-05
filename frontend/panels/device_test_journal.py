@@ -216,6 +216,9 @@ class JournalPanel(QWidget):
         self.all_entries = load_journal_entries(Path.cwd() / "journal")
         self.apply_filters()
 
+    def refresh(self):
+        self.load_entries()
+
     def clear_journal_list(self):
         while self.journal_layout.count():
             item = self.journal_layout.takeAt(0)

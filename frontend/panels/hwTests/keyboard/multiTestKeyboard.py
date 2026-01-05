@@ -324,6 +324,10 @@ class KeyboardMultiTestWindow(BaseTestWindow):
 
     def save_results(self, result):
 
+        self.btn_save.setEnabled(False)
+        self.btn_stop.setEnabled(False)
+        self.btn_reset.setEnabled(False)
+
         if not result:
             print("No test result to save")
             return
@@ -340,6 +344,10 @@ class KeyboardMultiTestWindow(BaseTestWindow):
             json.dump(result, f, indent=2)
 
         print(f"Saved test to {path}")
+
+        self.btn_save.setEnabled(True)
+        self.btn_stop.setEnabled(False)
+        self.btn_reset.setEnabled(True)
 
     def on_test_finished(self, result):
         self._final_result = result
