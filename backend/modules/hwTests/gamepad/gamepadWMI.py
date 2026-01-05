@@ -6,7 +6,7 @@ from backend.modules.hwTests.gamepad.gamepadXIsolated import (
     _xinput,
     ERROR_SUCCESS
 )
-from backend.modules.usbDecoder import decode_device_alternative
+from backend.modules.usbDecoder import decode_device_alternative, decode_device
 
 
 def get_xinput_to_usb_mapping():
@@ -73,8 +73,8 @@ def get_xinput_to_usb_mapping():
     mapping = {}
     for slot, usb_info in zip(active_slots, usb_mappings):
         mapping[slot] = {
-            'vid': usb_info['vid'],
-            'pid': usb_info['pid'],
+            'vid': int(usb_info['vid'], 16),
+            'pid': int(usb_info['pid'], 16),
             'name': usb_info['name'],
             'decoded_name': decode_device_alternative(usb_info['vid'], usb_info['pid']),
             'serial': usb_info['serial']

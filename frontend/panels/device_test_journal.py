@@ -1,40 +1,38 @@
+from pathlib import Path
+
 from PySide6.QtWidgets import (
-    QWidget, QVBoxLayout, QHBoxLayout, QLabel, QPushButton,
-    QLineEdit, QComboBox, QFrame, QListWidget, QListWidgetItem,
-    QSizePolicy, QScrollArea
+    QWidget, QVBoxLayout, QHBoxLayout, QLabel,
+    QLineEdit, QComboBox, QFrame, QScrollArea
 )
-from PySide6.QtCore import Qt
+from PySide6.QtCore import Qt, Signal
 from PySide6.QtGui import QFont
 
+from frontend.journal.details.audio_input_view import AudioInputTestView
+from frontend.journal.details.gamepad_multitest_view import GamepadMultiTestView
+from frontend.journal.details.keyboard_multitest_view import KeyboardMultiTestView
+from frontend.journal.details.mouse_multitest_view import MouseMultiTestView
+from frontend.journal.details.storage_MultiFile_View import StorageMultiFileTestView
+from frontend.journal.details.storage_SingleFile_view import StorageSingleFileTestView
+from frontend.journal.journal_loader import load_journal_entries
 from frontend.style.theme import *
-
-
-ACCENT_COLOR = "#0078d7"
 
 
 # --------------------------------
 # Single journal entry widget
 # --------------------------------
 class JournalEntryItem(QFrame):
-    def __init__(
-        self,
-        date: str,
-        category: str,
-        pid_vid: str,
-        device_name: str,
-        test_name: str,
-        parent=None
-    ):
+    clicked = Signal(object)  # emits JournalEntry
+
+    def __init__(self, entry, parent=None):
         super().__init__(parent)
+        self.entry = entry
 
         self.setCursor(Qt.PointingHandCursor)
         self.setFixedHeight(88)
 
-        # Hover applies ONLY to the whole entry
         self.setStyleSheet("""
             QFrame {
-                background-color: #1e1e1e;
-                border: none;
+                background-color: transparent;
                 border-radius: 6px;
             }
             QFrame:hover {
@@ -46,37 +44,26 @@ class JournalEntryItem(QFrame):
         layout.setContentsMargins(10, 8, 10, 8)
         layout.setSpacing(4)
 
-        top = QLabel(f"{date} • {category}")
+        top = QLabel(f"{entry.date} • {entry.category}")
         top.setFont(QFont("Segoe UI", 9))
-        top.setStyleSheet(f"""
-            QLabel {{
-                color: {TEXT_MUTED};
-                background-color: transparent;
-            }}
-        """)
+        top.setStyleSheet(f"color: {TEXT_MUTED};")
 
-        name = QLabel(device_name)
+        name = QLabel(entry.device_name)
         name.setFont(QFont("Segoe UI Semibold", 10))
-        name.setStyleSheet(f"""
-            QLabel {{
-                color: {TEXT_PRIMARY};
-                background-color: transparent;
-            }}
-        """)
+        name.setStyleSheet(f"color: {TEXT_PRIMARY};")
 
-        meta = QLabel(f"{test_name}   |   {pid_vid}")
+        meta = QLabel(f"{entry.test_name}   |   {entry.pid_vid}")
         meta.setFont(QFont("Segoe UI", 9))
-        meta.setStyleSheet(f"""
-            QLabel {{
-                color: {TEXT_SECONDARY};
-                background-color: transparent;
-            }}
-        """)
+        meta.setStyleSheet(f"color: {TEXT_SECONDARY};")
 
         layout.addWidget(top)
         layout.addWidget(name)
         layout.addWidget(meta)
 
+    def mousePressEvent(self, event):
+        if event.button() == Qt.LeftButton:
+            self.clicked.emit(self.entry)
+        super().mousePressEvent(event)
 
 
 # --------------------------------
@@ -87,19 +74,21 @@ class JournalPanel(QWidget):
         super().__init__(parent)
         self.backend = backend
 
+        self.all_entries = []
+        self.visible_entries = []
+
         main_layout = QHBoxLayout(self)
         main_layout.setContentsMargins(0, 0, 0, 0)
         main_layout.setSpacing(0)
 
         # ============================
-        # LEFT SIDE — JOURNAL LIST
+        # LEFT PANEL
         # ============================
         left_panel = QFrame()
         left_panel.setFixedWidth(380)
         left_panel.setStyleSheet("""
             QFrame {
                 background-color: #1b1b1b;
-                border-right: 1px solid #2a2a2a;
             }
         """)
 
@@ -109,19 +98,18 @@ class JournalPanel(QWidget):
 
         title = QLabel("Test Journal")
         title.setFont(QFont("Segoe UI Semibold", 18))
-        title.setStyleSheet("color: #ffffff;")
+        title.setStyleSheet("color: white;")
 
-        # ---- Search bar
-        search = QLineEdit()
-        search.setPlaceholderText("Search device, test, PID/VID...")
-        search.setFixedHeight(34)
-        search.setStyleSheet("""
+        self.search = QLineEdit()
+        self.search.setPlaceholderText("Search device, test, PID/VID...")
+        self.search.setFixedHeight(34)
+        self.search.setStyleSheet("""
             QLineEdit {
                 background-color: #222;
                 border: 1px solid #2d2d2d;
                 border-radius: 6px;
-                padding: 6px 8px;
-                color: #ffffff;
+                padding: 6px;
+                color: white;
             }
             QLineEdit:focus {
                 border: 1px solid #0078d7;
@@ -132,12 +120,12 @@ class JournalPanel(QWidget):
         filters = QHBoxLayout()
         filters.setSpacing(8)
 
-        sort_box = QComboBox()
-        sort_box.addItems(["Newest first", "Oldest first"])
-        sort_box.setFixedHeight(30)
+        self.sort_box = QComboBox()
+        self.sort_box.addItems(["Newest first", "Oldest first"])
+        self.sort_box.setFixedHeight(30)
 
-        category_box = QComboBox()
-        category_box.addItems([
+        self.category_box = QComboBox()
+        self.category_box.addItems([
             "All categories",
             "Keyboard",
             "Mouse",
@@ -145,19 +133,19 @@ class JournalPanel(QWidget):
             "Audio",
             "Storage"
         ])
-        category_box.setFixedHeight(30)
+        self.category_box.setFixedHeight(30)
 
-        test_box = QComboBox()
-        test_box.addItems([
+        self.test_box = QComboBox()
+        self.test_box.addItems([
             "All tests",
             "Multitest",
-            "Playback Test",
-            "Microphone Test",
-            "Storage Test"
+            "AudioInputTest",
+            "StorageMultiFileTest",
+            "StorageSingleFileTest"
         ])
-        test_box.setFixedHeight(30)
+        self.test_box.setFixedHeight(30)
 
-        for box in (sort_box, category_box, test_box):
+        for box in (self.sort_box, self.category_box, self.test_box):
             box.setStyleSheet("""
                 QComboBox {
                     background-color: #222;
@@ -168,85 +156,139 @@ class JournalPanel(QWidget):
                 }
             """)
 
-        filters.addWidget(sort_box)
-        filters.addWidget(category_box)
-        filters.addWidget(test_box)
+        filters.addWidget(self.sort_box)
+        filters.addWidget(self.category_box)
+        filters.addWidget(self.test_box)
 
-        # ---- Journal list
         scroll = QScrollArea()
         scroll.setWidgetResizable(True)
         scroll.setFrameShape(QFrame.NoFrame)
-        scroll.setHorizontalScrollBarPolicy(Qt.ScrollBarAlwaysOff)
 
-        scroll.setStyleSheet("""
-            QScrollBar:vertical {
-                background: #1e1e1e;
-                width: 8px;
-            }
-            QScrollBar::handle:vertical {
-                background: #555;
-                border-radius: 4px;
-            }
-        """)
+        container = QWidget()
+        self.journal_layout = QVBoxLayout(container)
+        self.journal_layout.setSpacing(10)
+        self.journal_layout.setAlignment(Qt.AlignTop)
 
-        journal_container = QWidget()
-        journal_layout = QVBoxLayout(journal_container)
-        journal_layout.setSpacing(10)
-        journal_layout.setContentsMargins(0, 0, 0, 0)
-        journal_layout.setAlignment(Qt.AlignTop)
-
-        scroll.setWidget(journal_container)
-
-        # Dummy entries (for layout testing)
-        for i in range(8):
-            journal_layout.addWidget(
-                JournalEntryItem(
-                    date="2025-03-12",
-                    category="Mouse",
-                    pid_vid="046D:C534",
-                    device_name="Logitech G403",
-                    test_name="Multitest"
-                )
-            )
-
-        journal_layout.addStretch(1)
+        scroll.setWidget(container)
 
         left_layout.addWidget(title)
-        left_layout.addWidget(search)
+        left_layout.addWidget(self.search)
         left_layout.addLayout(filters)
         left_layout.addWidget(scroll, 1)
 
         # ============================
-        # RIGHT SIDE — DETAILS
+        # RIGHT PANEL
         # ============================
         right_panel = QFrame()
-        right_panel.setStyleSheet("background-color: transparent;")
+        self.right_layout = QVBoxLayout(right_panel)
+        self.right_layout.setContentsMargins(32, 24, 32, 24)
+        self.right_layout.setSpacing(16)
 
-        right_layout = QVBoxLayout(right_panel)
-        right_layout.setContentsMargins(32, 24, 32, 24)
-        right_layout.setSpacing(16)
+        self.placeholder = QLabel("Select a test entry")
+        self.placeholder.setAlignment(Qt.AlignCenter)
+        self.placeholder.setFont(QFont("Segoe UI", 14))
+        self.placeholder.setStyleSheet("color: #555;")
 
-        header = QLabel("Test Result")
-        header.setFont(QFont("Segoe UI Semibold", 22))
-        header.setStyleSheet("color: #ffffff;")
-
-        sub = QLabel("Select an entry to view detailed results")
-        sub.setFont(QFont("Segoe UI", 11))
-        sub.setStyleSheet("color: #9a9a9a;")
-
-        placeholder = QLabel("No test selected")
-        placeholder.setAlignment(Qt.AlignCenter)
-        placeholder.setFont(QFont("Segoe UI", 14))
-        placeholder.setStyleSheet("color: #555555;")
-
-        right_layout.addWidget(header)
-        right_layout.addWidget(sub)
-        right_layout.addStretch(1)
-        right_layout.addWidget(placeholder)
-        right_layout.addStretch(2)
+        self.right_layout.addStretch(1)
+        self.right_layout.addWidget(self.placeholder)
+        self.right_layout.addStretch(2)
 
         # ============================
         # ASSEMBLY
         # ============================
         main_layout.addWidget(left_panel)
         main_layout.addWidget(right_panel, 1)
+
+        # ============================
+        # SIGNALS
+        # ============================
+        self.search.textChanged.connect(self.apply_filters)
+        self.sort_box.currentIndexChanged.connect(self.apply_filters)
+        self.category_box.currentIndexChanged.connect(self.apply_filters)
+        self.test_box.currentIndexChanged.connect(self.apply_filters)
+
+        self.load_entries()
+
+    # --------------------------------
+    # Journal logic
+    # --------------------------------
+    def load_entries(self):
+        self.all_entries = load_journal_entries(Path.cwd() / "journal")
+        self.apply_filters()
+
+    def clear_journal_list(self):
+        while self.journal_layout.count():
+            item = self.journal_layout.takeAt(0)
+            if item.widget():
+                item.widget().deleteLater()
+
+    def apply_filters(self):
+        query = self.search.text().lower().strip()
+        category = self.category_box.currentText()
+        test_filter = self.test_box.currentText()
+        newest_first = self.sort_box.currentIndex() == 0
+
+        filtered = []
+
+        for entry in self.all_entries:
+            if query:
+                haystack = f"{entry.device_name} {entry.test_name} {entry.pid_vid}".lower()
+                if query not in haystack:
+                    continue
+
+            if category != "All categories" and entry.category != category:
+                continue
+
+            if test_filter != "All tests" and test_filter.lower() not in entry.test_name.lower():
+                continue
+
+            filtered.append(entry)
+
+        filtered.sort(key=lambda e: e.timestamp, reverse=newest_first)
+
+        self.visible_entries = filtered
+        self.rebuild_journal_view()
+
+    def rebuild_journal_view(self):
+        self.clear_journal_list()
+
+        for entry in self.visible_entries:
+            item = JournalEntryItem(entry)
+            item.clicked.connect(self.show_entry)
+            self.journal_layout.addWidget(item)
+
+        self.journal_layout.addStretch(1)
+
+    # --------------------------------
+    # Right panel
+    # --------------------------------
+    def clear_right_panel(self):
+        while self.right_layout.count():
+            item = self.right_layout.takeAt(0)
+            if item.widget():
+                item.widget().deleteLater()
+
+    def show_entry(self, entry):
+        self.clear_right_panel()
+
+        test = entry.test_name.lower()
+
+        if "keyboard" in test:
+            view = KeyboardMultiTestView(entry)
+        elif "gamepad" in test:
+            view = GamepadMultiTestView(entry)
+        elif "mouse" in test:
+            view = MouseMultiTestView(entry)
+        elif "audioinput" in test:
+            view = AudioInputTestView(entry)
+        elif "storagesinglefile" in test:
+            view = StorageSingleFileTestView(entry)
+        elif "storagemultifile" in test:
+            view = StorageMultiFileTestView(entry)
+        else:
+            view = QLabel("Unsupported test type")
+            view.setAlignment(Qt.AlignCenter)
+            view.setStyleSheet("color: #888;")
+
+        self.right_layout.addWidget(view)
+

@@ -32,7 +32,7 @@ class MainWindow(QMainWindow):
 
     def _setup_ui(self):
         self.setWindowTitle("ProjectUSB")
-        self.setFixedSize(970, 600)
+        self.setFixedSize(1000, 600)
 
        # self.device_panel = DevicePanel()
        # self.setCentralWidget(self.device_panel)

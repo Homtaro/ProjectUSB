@@ -293,8 +293,8 @@ class GamepadMultiTestWindow(BaseTestWindow):
 
         path = self.backend.get_journal_path(
             "GamepadMultiTest",
-            int(result["device"].get("vid", "0"), 16) if "vid" in result["device"] else 0,
-            int(result["device"].get("pid", "0"), 16) if "pid" in result["device"] else 0,
+            result["device"].get("vid", 0),
+            result["device"].get("pid", 0),
         )
 
         import json
