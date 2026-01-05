@@ -24,8 +24,8 @@ class BackendService:
         """Initialize the backend service."""
         self._data = {}
 
-        print(self.get_hid_keyboards())
-        print(self.get_hid_mouse())
+        # print(self.get_hid_keyboards())
+        # print(self.get_hid_mouse())
 
         # print(testingModule.test())
         # print("Hello world")

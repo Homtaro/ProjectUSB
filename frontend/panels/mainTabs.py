@@ -23,7 +23,7 @@ class MainPanel(QWidget):
         tabs.addTab(self.device_panel, "Devices")
         tabs.addTab(self.hw_test, "Hardware Tests")
         tabs.addTab(self.journal_panel, "Test Journal")
-        tabs.addTab(WindowsSettingsMenu(), "Demo") #Placeholder
+        #tabs.addTab(WindowsSettingsMenu(), "Demo") #Placeholder
 
         layout.addWidget(tabs)
 
