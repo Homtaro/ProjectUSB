@@ -76,7 +76,7 @@ def get_xinput_to_usb_mapping():
             'vid': usb_info['vid'],
             'pid': usb_info['pid'],
             'name': usb_info['name'],
-            'real_name': decode_device_alternative(usb_info['vid'], usb_info['pid']),
+            'decoded_name': decode_device_alternative(usb_info['vid'], usb_info['pid']),
             'serial': usb_info['serial']
         }
 
